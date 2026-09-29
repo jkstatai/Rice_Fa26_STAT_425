@@ -1,0 +1,45 @@
+/*-- scss:defaults --*/
+$presentation-heading-color: #3d4e65;
+
+/*-- scss:rules --*/
+
+h1 {
+  font-size: 70px !important;
+}
+
+h2 {
+  font-size: 50px !important;
+}
+
+.title {
+  font-size: 50px !important;}
+
+.quarto-title-author-name {
+  font-size: 30px;
+}
+
+.date {
+  font-size: 30px;
+}
+
+.center-slide {
+  text-align: center;}
+  
+.center h1 {
+  text-align: center;}  
+
+.border {
+  border: 1px solid #dee2e6;
+}
+
+.border-thick {
+  border-width: 3px;
+}
+
+
+.reveal .slide-logo {
+  height: 40px !important;
+  width: 100px !important;
+  max-width: unset !important;
+  max-height: unset !important;
+}

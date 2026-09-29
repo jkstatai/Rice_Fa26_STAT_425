@@ -1,0 +1,1913 @@
+---
+title: "STAT 425 - Bayesian Inference:  Midterm 1 Review Session"
+
+author: "Justin Kao"
+footer: "STAT 425 - Fall 2026"
+format:
+  revealjs:
+    html-math-method: mathjax
+    theme: slides.scss
+    transition: fade
+    logo: rice_icon.png
+    slide-number: true
+    self-contained: true
+    auto-stretch: true
+editor: 
+  markdown: 
+    wrap: 72
+---
+
+
+# 🎲 Overview {.center}
+
+## What We Cover Today
+
+::: {style="font-size: 58%;"}
+
+**One engine, four conjugate models.**
+
+| | Lecture | Unknown | Model |
+|---|---|---|---|
+| 📐 | Lec 1 | Any $\theta$ | Bayes' rule, credible intervals |
+| 🪙 | Lec 2 | Proportion $\theta\in(0,1)$ | Beta–Binomial |
+| ⏱️ | Lec 3 | Rate $\theta>0$ | Gamma–Poisson |
+| 📊 | Lec 4 | Mean $\mu\in\mathbb{R}$, $\sigma^2$ known | Normal–Normal |
+| 🎯 | Lec 5 | Mean $\mu$ + variance $\sigma^2$ both unknown | Normal–Gamma |
+
+**The universal pattern** across all four:
+
+$$p(\theta \mid y) \;\propto\; p(y \mid \theta) \;\times\; p(\theta)$$
+
+> *Start with prior uncertainty. Update with data. Get posterior uncertainty.*
+
+Each conjugate model has a clean **prior + data = posterior** arithmetic. We derive all three from scratch.
+
+:::
+
+---
+
+# 📐 Lecture 1 — Why Bayes?
+
+---
+
+## 🤔 The Core Problem
+
+::: {style="font-size: 60%;"}
+
+Many statistical questions concern something **unobservable:**
+
+- 🦠 Does this patient have the disease?
+- ❓ Which parameter values remain plausible?
+- 🔮 What should we predict or decide next?
+
+**Bayesian aim:** Start with uncertainty, use evidence, obtain **updated uncertainty** about the unknown.
+
+Once we have the posterior $p(\theta \mid y)$, we can:
+
+- Estimate an unknown quantity
+- Report a **credible range**
+- Compare hypotheses or models
+- Predict future observations
+- Make decisions while accounting for uncertainty
+
+> 🔑 *Today's posterior becomes tomorrow's prior when new information arrives.*
+
+:::
+
+---
+
+## ⚙️ Conditional Probability
+
+::: {style="font-size: 60%;"}
+
+For events $A$ and $B$ with $\Pr(B) > 0$:
+
+$$\Pr(A \mid B) = \frac{\Pr(A \cap B)}{\Pr(B)}$$
+
+> Read "$\mid$" as **"given."** The event after the bar determines the reference group and therefore the denominator.
+
+**Key warning:** $\Pr(+ \mid D)$ and $\Pr(D \mid +)$ answer completely different questions!
+
+| | Meaning |
+|---|---|
+| $\Pr(+\mid D)$ | Among sick people, how many test positive? |
+| $\Pr(D\mid +)$ | Among positive tests, how many are sick? |
+
+**Bayes' rule** is exactly the tool for flipping the conditioning bar.
+
+:::
+
+---
+
+## 📐 Bayes' Rule (Discrete Version)
+
+::: {style="font-size: 60%;"}
+
+Let $B_1, B_2, \ldots$ be mutually exclusive and exhaustive hypotheses. For observed evidence $A$:
+
+$$\Pr(B_i \mid A) = \frac{\Pr(B_i)\;\Pr(A \mid B_i)}{\displaystyle\sum_j \Pr(B_j)\;\Pr(A \mid B_j)}$$
+
+In words:
+
+$$\text{posterior} = \frac{\text{prior} \times \text{likelihood}}{\text{probability of the evidence}}$$
+
+**Shortcut** — since the denominator is the same for all $i$:
+
+$$\Pr(B_i \mid A) \;\propto\; \Pr(B_i) \times \Pr(A \mid B_i)$$
+
+**Continuous version:**
+
+$$p(\theta \mid y) = \frac{p(y \mid \theta)\,p(\theta)}{\displaystyle\int p(y \mid \phi)\,p(\phi)\,d\phi} \;\propto\; \underbrace{p(y \mid \theta)}_{\text{likelihood}} \cdot \underbrace{p(\theta)}_{\text{prior}}$$
+
+:::
+
+---
+
+## 🏥 Running Example: Rare Disease Test
+
+::: {style="font-size: 60%;"}
+
+**Setup** — a rare cancer affects 1 in 1,000,000 young people:
+
+- Prevalence: $\Pr(D) = 10^{-6}$
+- Sensitivity: $\Pr(+ \mid D) = 0.99$
+- False-positive rate: $\Pr(+ \mid D^c) = 0.01$
+
+**Question:** What is $\Pr(D \mid +)$? 🤔
+
+What is your first guess? Below 0.1%? Between 0.1–10%? Above 10%?
+
+. . .
+
+**Apply Bayes' rule directly:**
+
+$$\Pr(D \mid +) = \frac{\Pr(+\mid D)\;\Pr(D)}{\Pr(+\mid D)\;\Pr(D) + \Pr(+\mid D^c)\;\Pr(D^c)}$$
+
+$$= \frac{(0.99)(10^{-6})}{(0.99)(10^{-6}) + (0.01)(1 - 10^{-6})} \approx 9.9 \times 10^{-5}$$
+
+**Answer: below 0.1%.** The correct answer surprises most people.
+
+:::
+
+---
+
+## 🔢 Why Is It So Low? Expected Counts
+
+::: {style="font-size: 60%;"}
+
+Imagine testing **100,000,000 people:**
+
+| | Disease | No disease |
+|---|---:|---:|
+| Number of people | 100 | 99,999,900 |
+| Expected positive tests | 99 | 999,999 |
+
+Among all 1,000,098 positive tests, only **99** come from people with the disease:
+
+::: {style="font-size: 70%;"}
+$$
+\Pr(D \mid +)
+=
+\frac{99}{99 + 999{,}999}
+\approx 9.9 \times 10^{-5}
+$$
+
+> 😲 **Lesson:** The disease is extremely rare to begin with:
+>
+> $$\text{Prior odds} \approx 1:999{,}999.$$
+>
+> A positive test favors disease by
+>
+> $$\frac{\Pr(+\mid D)}{\Pr(+\mid D^c)}
+> =\frac{0.99}{0.01}=99.$$
+>
+> So the odds become approximately
+>
+> $$1:999{,}999 \quad \longrightarrow \quad 99:999{,}999.$$
+>
+> The test increases the odds by **99 times**, but the starting odds are so small that the posterior probability is still tiny.
+:::
+:::
+
+---
+
+## 📊 Posterior Odds Form
+
+::: {style="font-size: 60%;"}
+
+An elegant way to write Bayes' rule:
+
+$$\frac{\Pr(D \mid +)}{\Pr(D^c \mid +)} = \frac{\Pr(D)}{\Pr(D^c)} \times \frac{\Pr(+ \mid D)}{\Pr(+ \mid D^c)}$$
+
+**posterior odds = prior odds × likelihood ratio (LR)**
+
+For our example:
+
+- Prior odds: $\approx 1 : 999{,}999$
+- LR $= 0.99 / 0.01 = 99$
+- Posterior odds $\approx 1 : 10{,}101$
+
+> The test multiplies the odds by 99 — a large update! But starting from near zero keeps the posterior near zero. **Evidence can change our view greatly while the event remains unlikely.**
+
+**Sequential updating:** after 3 independent positive tests, the posterior reaches 49.25%. Each posterior becomes the next prior.
+
+:::
+
+---
+
+## 🎯 Credible Intervals vs. Confidence Intervals
+
+::: {style="font-size: 60%;"}
+
+| | **Credible interval** 🟦 | **Confidence interval** 🟥 |
+|---|---|---|
+| What is random? | The parameter $\theta$ | The interval endpoints |
+| Statement | $\Pr(\theta \in C(y) \mid y) = 0.95$ | 95% of such intervals cover true $\theta$ |
+| Requires | Prior + likelihood | Likelihood only |
+
+::: 
+
+::: {style="font-size: 60%;"}
+
+Suppose $C(y)$ is a 95% posterior credible interval:
+
+$$\Pr\{\theta \in C(y) \mid y\} = 0.95$$
+
+**In words:** Given the model, prior, and observed data, the posterior probability that $\theta$ lies in $C(y)$ is 95%.
+
+A confidence interval answers: under **repeated sampling**, 95% of intervals constructed by the procedure contain the fixed parameter.
+
+> Both quantify uncertainty, but they answer **different probability questions.** The credible interval gives you the statement most people actually want.
+
+:::
+
+---
+
+## 💡 Why Doing Bayes Well Takes Work
+
+::: {style="font-size: 60%;"}
+
+The rule is simple. But a good Bayesian analysis requires:
+
+1. **Choose** a meaningful prior
+2. **Construct** a reasonable data model (likelihood)
+3. **Compute** or approximate the posterior
+4. **Check** assumptions and sensitivity
+5. **Connect** the result to the scientific question
+
+
+
+> 🔑 *These tasks, rather than memorizing one formula, form the structure of Bayesian inference.*
+
+:::
+
+---
+
+# 🪙 Lecture 2 — Beta–Binomial
+
+---
+
+## 🔧 Setup: Learning a Proportion
+
+::: {style="font-size: 60%;"}
+
+**Goal:** Estimate unknown proportion $\theta \in [0,1]$ from $n$ Bernoulli trials.
+
+**Likelihood** — $Y \mid \theta \sim \text{Binomial}(n, \theta)$:
+
+$$p(y \mid \theta) = \binom{n}{y}\theta^y(1-\theta)^{n-y}$$
+
+As a function of $\theta$ (drop constants not involving $\theta$):
+
+$$L(\theta \mid y) \propto \theta^y(1-\theta)^{n-y}$$
+
+**Prior** — $\theta \sim \text{Beta}(a, b)$:
+
+$$\pi(\theta) \propto \theta^{a-1}(1-\theta)^{b-1}, \quad \theta \in (0,1)$$
+
+> ✨ The Beta prior **exactly mirrors** the Binomial likelihood in exponent structure — this is why they are conjugate.
+
+:::
+
+---
+
+## 🧮 Full Derivation — Beta–Binomial (Steps 1–2)
+
+::: {style="font-size: 60%;"}
+
+We want the posterior $\pi(\theta \mid y)$. By Bayes' rule:
+
+$$\pi(\theta \mid y) \propto p(y \mid \theta) \cdot \pi(\theta)$$
+
+**Step 1** — Write out the two kernels:
+
+$$\pi(\theta \mid y) \propto \underbrace{\theta^y(1-\theta)^{n-y}}_{\text{likelihood kernel}} \cdot \underbrace{\theta^{a-1}(1-\theta)^{b-1}}_{\text{prior kernel}}$$
+
+**Step 2** — Multiply: same base, add exponents:
+
+$$\pi(\theta \mid y) \propto \theta^{y + (a-1)}(1-\theta)^{(n-y) + (b-1)}$$
+
+$$= \theta^{(a+y)-1}(1-\theta)^{(b+n-y)-1}$$
+
+:::
+
+---
+
+## 🧮 Full Derivation — Beta–Binomial (Steps 3–4)
+
+::: {style="font-size: 60%;"}
+
+**Step 3** — Recognize the pattern: $\theta^{\alpha - 1}(1-\theta)^{\beta - 1}$ is the kernel of a $\text{Beta}(\alpha, \beta)$ distribution.
+
+Here we have $\alpha = a + y$ and $\beta = b + n - y$.
+
+**Step 4** — Since the posterior must integrate to 1, it can only be:
+
+$$\boxed{\theta \mid y \;\sim\; \text{Beta}(a + y,\; b + n - y)}$$
+
+**Update rule in plain terms:**
+
+$$a \;\mapsto\; a + y \quad \text{(add successes to } a\text{)}$$
+$$b \;\mapsto\; b + n - y \quad \text{(add failures to } b\text{)}$$
+
+> 🎉 The posterior stays in the Beta family — that's conjugacy!
+
+:::
+
+---
+
+## 💡 Interpreting the Beta–Binomial Update
+
+::: {style="font-size: 60%;"}
+
+The **posterior mean** of $\text{Beta}(a+y,\, b+n-y)$:
+
+$$E(\theta \mid y) = \frac{a+y}{(a+y)+(b+n-y)} = \frac{a+y}{a+b+n}$$
+
+Rewrite as a **weighted average** of prior mean and sample proportion:
+
+$$E(\theta \mid y) = \underbrace{\frac{a+b}{a+b+n}}_{\text{prior weight}} \cdot \underbrace{\frac{a}{a+b}}_{\text{prior mean}} + \underbrace{\frac{n}{a+b+n}}_{\text{data weight}} \cdot \underbrace{\frac{y}{n}}_{\hat{p}}$$
+
+Key insights:
+
+- ⚖️ $a + b$ acts like a **prior sample size**
+- 📈 As $n \to \infty$, data weight $\to 1$ — the data eventually wins
+- 🧠 $a$ = prior successes, $b$ = prior failures
+- 🫥 $\text{Beta}(1,1) = \text{Uniform}(0,1)$: the "I know nothing" prior
+
+:::
+
+---
+
+## 📋 Beta Distribution Summary
+
+::: {style="font-size: 60%;"}
+
+| Quantity | Formula |
+|---|---|
+| Support | $\theta \in (0,1)$ |
+| Mean | $a/(a+b)$ |
+| Variance | $ab/[(a+b)^2(a+b+1)]$ |
+| Mode (if $a,b>1$) | $(a-1)/(a+b-2)$ |
+
+**Special cases:**
+
+- $\text{Beta}(1,1) = \text{Uniform}(0,1)$ → flat/non-informative prior
+- Large $a+b$ → more concentrated, stronger prior belief
+- $a > b$ → prior mean above 0.5 (expect more successes)
+
+> **Elicitation tip:** Think of $a$ as "prior successes" and $b$ as "prior failures" from imaginary past experience. If you had seen 2 successes and 2 failures before, use Beta(2,2).
+
+:::
+
+---
+
+## 🔢 Worked Example — Beta–Binomial
+
+::: {style="font-size: 60%;"}
+
+**Setup:** Proportion of defective chips. Prior: $\theta \sim \text{Beta}(2, 8)$ (believe ~20% defective). Observe $y = 3$ defectives in $n = 20$ tests.
+
+**Prior mean:** $2/(2+8) = 0.20$
+
+**Posterior:**
+
+$$\theta \mid y \sim \text{Beta}(2+3,\; 8+17) = \text{Beta}(5, 25)$$
+
+**Posterior mean:** $5/(5+25) = 5/30 \approx 0.167$
+
+**Check:** The posterior mean (0.167) lies between the prior mean (0.20) and the sample proportion (3/20 = 0.15). ✓
+
+```r
+# Posterior summaries in R
+qbeta(c(0.025, 0.975), 5, 25)   # 95% credible interval
+1 - pbeta(0.2, 5, 25)           # Pr(theta > 0.2 | y)
+```
+
+:::
+
+---
+
+## 🔁 Does Order of Data Matter?
+
+::: {style="font-size: 60%;"}
+
+**Question:** Suppose data arrive in two batches. Does the order of updating change the final posterior?
+
+**Example:** Prior $\text{Beta}(2,8)$. Batch 1: 10 successes in 16 trials. Batch 2: 4 successes in 20 trials.
+
+**Order A** (Batch 1 first, then Batch 2):
+
+$$\text{Beta}(2,8) \xrightarrow{+10\text{ succ}, +6\text{ fail}} \text{Beta}(12,14) \xrightarrow{+4\text{ succ}, +16\text{ fail}} \text{Beta}(16,30)$$
+
+**Order B** (Batch 2 first, then Batch 1):
+
+$$\text{Beta}(2,8) \xrightarrow{+4\text{ succ}, +16\text{ fail}} \text{Beta}(6,24) \xrightarrow{+10\text{ succ}, +6\text{ fail}} \text{Beta}(16,30)$$
+
+Both give $\text{Beta}(16, 30)$. ✓
+
+> 🔑 **Answer: No.** Under this model, the final counts $S$ and $n-S$ are the same regardless of order, and multiplication is associative — so the posterior is always identical. This is a key property of conjugate updating.
+
+:::
+
+---
+
+## 🔮 Posterior Predictive — Next Single Response
+
+::: {style="font-size: 60%;"}
+
+For the next response indicator $X_\text{new} \in \{0,1\}$, we average over posterior uncertainty:
+
+$$\Pr(X_\text{new} = 1 \mid y) = \int_0^1 \Pr(X_\text{new} = 1 \mid \theta)\;\pi(\theta \mid y)\;d\theta$$
+
+Since $\Pr(X_\text{new} = 1 \mid \theta) = \theta$:
+
+$$\Pr(X_\text{new} = 1 \mid y) = \int_0^1 \theta\;\pi(\theta \mid y)\;d\theta = E(\theta \mid y)$$
+
+For the direct mail example (posterior $\text{Beta}(16, 44)$):
+
+$$\Pr(X_\text{new} = 1 \mid y) = E(\theta \mid y) = \frac{16}{16+44} = \frac{16}{60} \approx 0.2667$$
+
+> 💡 **Intuition:** The predictive probability of one future success is simply the posterior mean of $\theta$. You don't need to know $\theta$ exactly — averaging over your uncertainty gives the right answer automatically.
+
+:::
+
+---
+
+## 📦 Beta–Binomial Predictive Distribution
+
+::: {style="font-size: 60%;"}
+
+For a **future batch** of $m$ recipients, let $K$ = number of successes. Marginalizing over $\theta$:
+
+$$P \sim \text{Beta}(\alpha, \beta), \qquad K \mid P \sim \text{Bin}(m, P)$$
+
+After averaging over $P$, $K$ follows a **Beta-Binomial distribution**:
+
+$$K \sim \text{Beta-Binomial}(m, \alpha, \beta)$$
+
+$$\Pr(K=k) = \binom{m}{k}\frac{B(\alpha+k,\; \beta+m-k)}{B(\alpha,\beta)}, \quad k=0,\ldots,m$$
+
+> 🎲 **Sampling recipe:** Draw $P$ from $\text{Beta}(\alpha,\beta)$, then draw $K$ from $\text{Bin}(m, P)$.
+
+For our posterior $\text{Beta}(16,44)$, the predictive for $K$ among the next $m$ recipients is:
+
+$$K \mid y \sim \text{Beta-Binomial}(m,\; a+y,\; b+n-y) = \text{Beta-Binomial}(m,\; 16,\; 44)$$
+
+:::
+
+---
+
+## 🧩 Deriving the Beta–Binomial: Step 1
+
+::: {style="font-size: 30%;"}
+
+We want the probability that the future batch contains exactly $k$ successes:
+
+$$
+\Pr(K=k).
+$$
+
+If the success probability were known to be $P=p$, then
+
+$$
+K\mid P=p \sim \text{Bin}(m,p),
+$$
+
+so
+
+$$
+\Pr(K=k\mid P=p)
+=
+\binom{m}{k}p^k(1-p)^{m-k}.
+$$
+
+But $P$ is not fixed. It is uncertain:
+
+$$
+P\sim\text{Beta}(\alpha,\beta),
+$$
+
+with density
+
+$$
+f_P(p)
+=
+\frac{1}{B(\alpha,\beta)}
+p^{\alpha-1}(1-p)^{\beta-1}.
+$$
+
+Therefore, we average the Binomial probability over all possible values of $p$:
+
+$$
+\boxed{
+\Pr(K=k)
+=
+\int_0^1
+\Pr(K=k\mid P=p)\,
+f_P(p)\,dp
+}
+$$
+
+Substituting both pieces,
+
+$$
+\Pr(K=k)
+=
+\int_0^1
+\left[
+\binom{m}{k}p^k(1-p)^{m-k}
+\right]
+\left[
+\frac{p^{\alpha-1}(1-p)^{\beta-1}}
+{B(\alpha,\beta)}
+\right]
+dp.
+$$
+
+> 💡 **Intuition:** For each possible $p$, calculate how likely $K=k$ is, then weight that by how plausible that $p$ is under the Beta distribution.
+
+:::
+
+---
+
+
+## 🧩 Deriving the Beta–Binomial: Step 2
+
+::: {style="font-size: 30%;"}
+
+Starting from
+
+$$
+\Pr(K=k)
+=
+\int_0^1
+\binom{m}{k}p^k(1-p)^{m-k}
+\frac{p^{\alpha-1}(1-p)^{\beta-1}}
+{B(\alpha,\beta)}
+\,dp,
+$$
+
+combine the powers:
+
+$$
+p^k p^{\alpha-1}
+=
+p^{\alpha+k-1},
+$$
+
+and
+
+$$
+(1-p)^{m-k}(1-p)^{\beta-1}
+=
+(1-p)^{\beta+m-k-1}.
+$$
+
+So,
+
+$$
+\Pr(K=k)
+=
+\binom{m}{k}
+\frac{1}{B(\alpha,\beta)}
+\int_0^1
+p^{\alpha+k-1}
+(1-p)^{\beta+m-k-1}
+\,dp.
+$$
+
+Now recall the Beta-function definition:
+
+$$
+B(r,s)
+=
+\int_0^1
+p^{r-1}(1-p)^{s-1}\,dp.
+$$
+
+Therefore,
+
+$$
+\int_0^1
+p^{\alpha+k-1}
+(1-p)^{\beta+m-k-1}
+\,dp
+=
+B(\alpha+k,\beta+m-k).
+$$
+
+Hence,
+
+$$
+\boxed{
+\Pr(K=k)
+=
+\binom{m}{k}
+\frac{B(\alpha+k,\beta+m-k)}
+{B(\alpha,\beta)}
+}
+$$
+
+which is exactly the pmf of
+
+$$
+\boxed{
+K\sim\text{Beta-Binomial}(m,\alpha,\beta).
+}
+$$
+
+> 💡 **Intuition:** The Beta–Binomial is not a new model pulled from nowhere — it is simply the Binomial model after we integrate out the uncertain success probability $P$.
+
+:::
+
+---
+
+## 📊 Beta–Binomial Mean and Variance
+
+::: {style="font-size: 50%;"}
+
+For $K \sim \text{Beta-Binomial}(m, \alpha, \beta)$:
+
+**Mean** — by total expectation $E(K) = E\{E(K\mid P)\} = m\,E(P)$:
+
+$$E(K) = m\frac{\alpha}{\alpha+\beta}$$
+
+**Variance** — by total variance $\text{Var}(K) = E\{\text{Var}(K\mid P)\} + \text{Var}\{E(K\mid P)\}$:
+
+$$\text{Var}(K) = \frac{m\alpha\beta(\alpha+\beta+m)}{(\alpha+\beta)^2(\alpha+\beta+1)}$$
+
+For $m=5$, $\alpha=16$, $\beta=44$:
+
+$$E(K) = 5 \times \frac{16}{60} = 1.333, \qquad \text{Var}(K) = 1.042$$
+
+**Compare to Binomial(5, 0.2667):** mean $= 1.333$, variance $= 5\times0.2667\times0.7333 = 0.978$
+
+> 📈 **Why is the Beta-Binomial variance larger?** The Binomial treats $\theta$ as fixed at 0.2667, ignoring uncertainty. The Beta-Binomial adds **posterior uncertainty about $\theta$** on top of binomial sampling variation — so it is always more dispersed.
+
+:::
+
+---
+
+## 🎯 Predicting a Future Batch
+
+::: {style="font-size: 60%;"}
+
+Let $K$ = number of responses among the next $m$ recipients:
+
+$$K \mid y \sim \text{Beta-Binomial}(m,\; a+y,\; b+n-y)$$
+
+For the next **5** recipients (posterior $\text{Beta}(16, 44)$):
+
+$$\Pr(K \geq 2 \mid y) = 0.401$$
+
+```r
+# Beta-Binomial CDF in R using VGAM package
+library(VGAM)
+1 - pbetabinom.ab(1, size = 5, shape1 = 16, shape2 = 44)
+# [1] 0.401
+
+# Or by simulation (no package needed)
+set.seed(425)
+theta_draws <- rbeta(100000, 16, 44)
+k_draws     <- rbinom(100000, size = 5, prob = theta_draws)
+mean(k_draws >= 2)   # ≈ 0.401
+```
+
+> ❓ **Why not just use $\text{Bin}(5, 0.2667)$?**
+>
+> $\text{Bin}(5, 0.2667)$ gives $\Pr(K\geq2) = 0.380$ — too low. It treats $\theta$ as known exactly. The Beta-Binomial correctly accounts for **posterior uncertainty in $\theta$** as well as future sampling variation, giving a wider, more honest predictive distribution.
+
+:::
+
+---
+
+## 🚨 Common Beta–Binomial Mistakes
+
+::: {style="font-size: 60%;"}
+
+❌ **Mistake 1:** Confusing the prior mean $a/(a+b)$ with $a$ itself.
+
+- If Beta(3,7), the prior mean is $3/10 = 0.3$, not 3.
+
+❌ **Mistake 2:** Using $\text{Beta}(0,0)$ — this is not a valid density.
+
+❌ **Mistake 3:** Adding $n$ (total trials) to $a$ instead of $y$ (successes) to $a$ and $(n-y)$ to $b$.
+
+- The update is: $a \mapsto a + y$, $b \mapsto b + (n-y)$
+- NOT: $a \mapsto a + n$
+
+❌ **Mistake 4:** Forgetting that $\text{Beta}(1,1)$ is the uniform prior, not "no prior."
+
+> ✅ Always check: posterior mean should lie **between** prior mean and sample proportion.
+
+:::
+
+---
+
+# ⏱️ Lecture 3 — Gamma–Poisson
+
+---
+
+## 🔧 Rate vs. Probability
+
+::: {style="font-size: 60%;"}
+
+**Key conceptual difference:**
+
+| | Probability | Rate |
+|---|---|---|
+| Range | $0 \leq p \leq 1$ | $\theta > 0$ (unbounded!) |
+| Example | Pr(one ticket is urgent) | Expected tickets per hour |
+
+A rate **can exceed 1** and its **unit is part of its meaning** (events/hour, events/year, etc.).
+
+> ❓ Is 2.5 tickets per hour a probability? **No** — because it exceeds 1. It's a rate.
+
+**The model:** Count $X_i$ over exposure window $t_i$:
+
+$$X_i \mid \theta \;\sim\; \text{Poisson}(t_i\,\theta)$$
+
+Conditional moments: $E(X_i \mid \theta) = t_i\theta$, $\text{Var}(X_i \mid \theta) = t_i\theta$.
+
+The equality of mean and variance is a **model assumption**, not a universal fact about count data.
+
+:::
+
+---
+
+## 📦 Step 0: The Sufficient Statistics $S$ and $T$
+
+::: {style="font-size: 60%;"}
+
+Before applying Bayes, simplify the likelihood.
+
+**Step 1 — Joint likelihood** for $n$ independent counts:
+
+$$L(\theta \mid x) = \prod_{i=1}^n \frac{e^{-t_i\theta}(t_i\theta)^{x_i}}{x_i!}$$
+
+**Step 2 — Drop constants** (terms not involving $\theta$, including $t_i^{x_i}/x_i!$):
+
+$$L(\theta \mid x) \propto \prod_{i=1}^n e^{-t_i\theta} \cdot \theta^{x_i}$$
+
+**Step 3 — Combine using $e^a \cdot e^b = e^{a+b}$ and $\theta^a \cdot \theta^b = \theta^{a+b}$:**
+
+$$= e^{-\theta\sum_i t_i} \cdot \theta^{\sum_i x_i} = e^{-T\theta}\,\theta^S$$
+
+where $S = \sum_i x_i$ (total count) and $T = \sum_i t_i$ (total exposure).
+
+> 🎯 **Data reduction:** The posterior only needs $S$ and $T$ — not the individual $x_i$.
+
+:::
+
+---
+
+## 🔧 The Gamma Prior
+
+::: {style="font-size: 60%;"}
+
+We use the **shape–rate** convention: $\theta \sim \text{Gamma}(a, b)$:
+
+$$\pi(\theta) \propto \theta^{a-1}e^{-b\theta}, \quad \theta > 0$$
+
+$$E(\theta) = \frac{a}{b}, \qquad \text{Var}(\theta) = \frac{a}{b^2}$$
+
+For $\text{Gamma}(2,1)$: prior mean $= 2/1 = 2$ events/hour.
+
+> ⚠️ **Critical warning:** Some sources (and R's default) use **scale** $= 1/b$ instead of **rate** $= b$. Always write `rate = b` explicitly:
+>
+> `dgamma(x, shape = a, rate = b)` ✅
+>
+> `dgamma(x, shape = a, scale = 1/b)` ✅ (same thing)
+>
+> `dgamma(x, shape = a)` ❌ (uses scale=1 by default, i.e., rate=1)
+
+:::
+
+---
+
+## 🧮 Full Derivation — Gamma–Poisson (Steps 1–2)
+
+::: {style="font-size: 60%;"}
+
+We have:
+
+- Likelihood kernel: $L(\theta \mid x) \propto e^{-T\theta}\,\theta^S$
+- Prior kernel: $\pi(\theta) \propto \theta^{a-1}e^{-b\theta}$
+
+**Step 1** — Write posterior $\propto$ likelihood $\times$ prior:
+
+$$\pi(\theta \mid x) \propto L(\theta \mid x) \cdot \pi(\theta)$$
+
+**Step 2** — Substitute the kernels:
+
+$$\pi(\theta \mid x) \propto \bigl[e^{-T\theta}\,\theta^S\bigr] \cdot \bigl[\theta^{a-1}e^{-b\theta}\bigr]$$
+
+$$= e^{-T\theta}\,\theta^S \cdot \theta^{a-1}\,e^{-b\theta}$$
+
+:::
+
+---
+
+## 🧮 Full Derivation — Gamma–Poisson (Steps 3–4)
+
+::: {style="font-size: 60%;"}
+
+**Step 3** — Group $\theta$ powers together, group exponentials together:
+
+$$\pi(\theta \mid x) \propto \theta^{S + (a-1)} \cdot e^{-(b+T)\theta}$$
+
+$$= \theta^{(a+S)-1} \cdot e^{-(b+T)\theta}$$
+
+**Step 4** — Recognize: this is the kernel of $\text{Gamma}(\alpha, \beta)$ with $\alpha = a+S$ and $\beta = b+T$.
+
+$$\boxed{\theta \mid x \;\sim\; \text{Gamma}(a + S,\; b + T)}$$
+
+**Update rule:**
+
+$$a \;\mapsto\; a + S \quad \text{(add total event count)}$$
+$$b \;\mapsto\; b + T \quad \text{(add total exposure)}$$
+
+> 🎉 Count accumulates in $a$; exposure accumulates in $b$.
+
+:::
+
+---
+
+## 💡 Interpreting the Gamma–Poisson Update
+
+::: {style="font-size: 60%;"}
+
+**Posterior mean** of $\text{Gamma}(a+S, b+T)$:
+
+$$E(\theta \mid x) = \frac{a + S}{b + T}$$
+
+Rewrite as a **weighted average** of prior rate and observed rate:
+
+$$E(\theta \mid x) = \underbrace{\frac{b}{b+T}}_{\text{prior weight}} \cdot \underbrace{\frac{a}{b}}_{\text{prior mean}} + \underbrace{\frac{T}{b+T}}_{\text{data weight}} \cdot \underbrace{\frac{S}{T}}_{\text{sample rate}}$$
+
+Key insights:
+
+- $a$ behaves like **prior event count**, $b$ like **prior exposure**
+- These need not represent actual past observations — they encode prior belief
+- More data ($T\uparrow$) pulls the posterior mean toward the observed rate $S/T$
+- As $T \to \infty$, posterior mean $\to S/T$
+
+:::
+
+---
+
+## 🖥️ Worked Example — Help Desk Tickets
+
+::: {style="font-size: 60%;"}
+
+Ticket counts over 7 one-hour periods: $3, 1, 4, 2, 0, 5, 3$. Prior: $\theta \sim \text{Gamma}(2, 1)$.
+
+**Compute sufficient statistics:**
+
+$$S = 3+1+4+2+0+5+3 = 18, \quad T = 7$$
+
+**Posterior:**
+
+$$\theta \mid x \sim \text{Gamma}(2+18,\;1+7) = \text{Gamma}(20, 8)$$
+
+The data add 18 tickets and 7 hours of exposure.
+
+**Posterior summaries:**
+
+| | Value |
+|---|---|
+| Posterior mean | $20/8 = 2.5$ tickets/hr |
+| Posterior SD | $\sqrt{20}/8 \approx 0.559$ |
+| 95% credible interval | $(1.527, 3.709)$ |
+| $\Pr(\theta > 3 \mid x)$ | $0.180$ |
+
+:::
+
+---
+
+## 💻 R Code — Gamma–Poisson
+
+::: {style="font-size: 60%;"}
+
+```r
+# Posterior: Gamma(20, 8) — always specify rate =
+qgamma(c(0.025, 0.975), shape = 20, rate = 8)
+# [1] 1.527  3.709
+
+1 - pgamma(3, shape = 20, rate = 8)
+# [1] 0.180
+```
+
+> ✅ Writing `rate = 8` prevents the rate–scale mix-up.
+
+**Interpretation:** Given the model, prior, and observed counts, there is about an 18% posterior probability that the true rate exceeds 3 tickets per hour.
+
+**Posterior mean check:**
+
+$$\frac{1}{8}(2) + \frac{7}{8}\!\left(\frac{18}{7}\right) = \frac{2}{8} + \frac{18}{8} = \frac{20}{8} = 2.5 \checkmark$$
+
+The posterior mean is a weighted average: prior weight $\frac{b}{b+T} = \frac{1}{8}$ on prior mean 2, data weight $\frac{T}{b+T} = \frac{7}{8}$ on sample rate $18/7$.
+
+:::
+
+---
+
+## 🔮 Posterior Predictive — Gamma–Poisson
+
+::: {style="font-size: 50%;"}
+
+For a **future** count $X_\text{new}$ over exposure $t_\text{new}$, we average over uncertainty about $\theta$:
+
+$$\Pr(X_\text{new} = k \mid x) = \int \Pr(X_\text{new} = k \mid \theta)\;\pi(\theta \mid x)\;d\theta$$
+
+With $\theta \mid x \sim \text{Gamma}(a_*, b_*)$, this integral closes to a **Negative Binomial** distribution:
+
+$$\Pr(X_\text{new} = k \mid x) = \frac{\Gamma(a_*+k)}{\Gamma(a_*)k!}\left(\frac{b_*}{b_*+t_\text{new}}\right)^{a_*}\!\left(\frac{t_\text{new}}{b_*+t_\text{new}}\right)^k$$
+
+**Predictive variance** (for a one-hour future period):
+
+
+$$\text{Var}(X_\text{new} \mid x) = E(\theta \mid x) + \text{Var}(\theta \mid x)$$
+
+
+Gamma uncertainty in rate + Poisson future count = Negative Binomial predictive
+
+**future event variation** + **rate uncertainty**
+
+> The predictive is **more dispersed** than Poisson($\hat\theta$), which ignores our uncertainty about $\theta$.
+
+:::
+
+---
+
+## ⚡ Posterior vs. Posterior Predictive
+
+::: {style="font-size: 60%;"}
+
+| | Posterior for $\theta$ | Posterior predictive for $X_\text{new}$ |
+|---|---|---|
+| What is uncertain? | The rate $\theta$ | A future count |
+| Distribution | $\text{Gamma}(20, 8)$ — continuous | Negative Binomial — discrete |
+| Mean | $2.5$ tickets/hr | $2.5$ tickets |
+| Variance | $20/64 = 0.3125$ | $2.5 + 0.3125 = 2.8125$ |
+
+For our example, $\Pr(X_\text{new} \geq 4 \mid x) = 0.248$.
+
+> The predictive contains both **rate uncertainty** (from the posterior) and **new-event randomness** (from the Poisson model). Plugging in $\hat\theta$ ignores the first source. 
+
+**Bayesian workflow:** Specify → Update → Interpret → Predict → Check assumptions.
+
+:::
+
+---
+
+## 🚨 Common Gamma–Poisson Mistakes
+
+::: {style="font-size: 60%;"}
+
+❌ **Mistake 1:** Treating a rate $\theta > 1$ as a probability.
+
+- $\theta = 2.5$ tickets/hour is a rate, not a probability.
+
+❌ **Mistake 2:** Ignoring exposure time.
+
+- Counts over different exposure windows are NOT directly comparable — always track $T$.
+
+❌ **Mistake 3:** Mixing rate $b$ and scale $1/b$.
+
+- $\text{Gamma}(2, 1)$ with **rate** = 1 means mean $= 2$.
+- $\text{Gamma}(2, 1)$ with **scale** = 1 means the same thing here, but be careful when numbers differ!
+
+❌ **Mistake 4:** Adding event count $S$ to $b$ instead of to $a$.
+
+- Correct: $a \mapsto a + S$, $b \mapsto b + T$.
+
+❌ **Mistake 5:** Confusing the posterior for $\theta$ (continuous) with the predictive for $X_\text{new}$ (discrete).
+
+❌ **Mistake 6:** Treating conjugacy as evidence the Poisson model fits. Always check assumptions.
+
+:::
+
+---
+
+# 📊 Lecture 4 — Normal–Normal
+
+---
+
+## 🔧 Setup: Learning a Continuous Mean
+
+::: {style="font-size: 60%;"}
+
+**Model:** $n$ i.i.d. observations with unknown mean $\mu$ and **known** variance $\sigma^2$:
+
+$$X_i \mid \mu \;\overset{\text{iid}}{\sim}\; N(\mu, \sigma^2), \quad i = 1, \ldots, n$$
+
+**Prior:** $\mu \sim N(m_0, v_0)$ where $v_0 > 0$ is the **prior variance**.
+
+> ⚠️ **Three variances — keep them straight:**
+
+| Symbol | What varies |
+|---|---|
+| $\sigma^2$ | One observation, given $\mu$ |
+| $\sigma^2/n$ | The sample mean $\bar X$, given $\mu$ |
+| $v_0$ | The unknown mean $\mu$ under the prior |
+
+Note: $\bar X \mid \mu \sim N(\mu, \sigma^2/n)$.
+
+**Today's question:** What kind of information adds when we learn a continuous mean?
+
+:::
+
+---
+
+## 📉 Step 1: The Likelihood Reduces to $\bar{x}$
+
+::: {style="font-size: 60%;"}
+
+**Joint likelihood:**
+
+$$L(\mu \mid x) = \prod_{i=1}^n \frac{1}{\sqrt{2\pi\sigma^2}}\exp\!\left\{-\frac{(x_i-\mu)^2}{2\sigma^2}\right\}$$
+
+**Key algebraic identity** — expand $\sum_i(x_i - \mu)^2$:
+
+$$\sum_{i=1}^n(x_i - \mu)^2 = \underbrace{\sum_i(x_i - \bar x)^2}_{Q,\;\text{no }\mu} + n(\bar x - \mu)^2$$
+
+The cross term $2\sum_i(x_i - \bar x)(\bar x - \mu)$ vanishes because $\sum_i(x_i - \bar x) = 0$.
+
+**Drop $Q$** (constant in $\mu$, absorbed into proportionality):
+
+$$L(\mu \mid x) \propto \exp\!\left\{-\frac{n(\bar x - \mu)^2}{2\sigma^2}\right\}$$
+
+> 🎯 **Data reduction:** The likelihood depends on the data **only through the sample mean $\bar x$.**
+
+:::
+
+---
+
+## 🧮 Full Derivation — Normal–Normal (Steps 1–2)
+
+::: {style="font-size: 60%;"}
+
+**Step 1** — Write posterior $\propto$ likelihood $\times$ prior:
+
+$$\pi(\mu \mid x) \propto \exp\!\left\{-\frac{n(\mu - \bar x)^2}{2\sigma^2}\right\} \cdot \exp\!\left\{-\frac{(\mu - m_0)^2}{2v_0}\right\}$$
+
+**Step 2** — Combine into one exponential:
+
+$$\pi(\mu \mid x) \propto \exp\!\left\{-\frac{1}{2}\left[\frac{n(\mu-\bar x)^2}{\sigma^2} + \frac{(\mu - m_0)^2}{v_0}\right]\right\}$$
+
+Now expand the quadratics in $\mu$ and **collect $\mu^2$ and $\mu$ terms:**
+
+$$= \exp\!\left\{-\frac{1}{2}(A\mu^2 - 2B\mu + C)\right\}$$
+
+where $C$ is constant in $\mu$ and:
+
+$$A = \frac{1}{v_0} + \frac{n}{\sigma^2}, \qquad B = \frac{m_0}{v_0} + \frac{n\bar x}{\sigma^2}$$
+
+:::
+
+---
+
+## 🧮 Full Derivation — Normal–Normal (Steps 3–4)
+
+::: {style="font-size: 60%;"}
+
+**Step 3** — Complete the square in $\mu$:
+
+$$A\mu^2 - 2B\mu = A\!\left(\mu - \frac{B}{A}\right)^2 - \frac{B^2}{A}$$
+
+The term $-B^2/A$ is constant in $\mu$ — drop it (absorbed into proportionality).
+
+So:
+
+$$\pi(\mu \mid x) \propto \exp\!\left\{-\frac{A}{2}\!\left(\mu - \frac{B}{A}\right)^2\right\}$$
+
+This is a **Normal kernel** with variance $1/A$ and mean $B/A$.
+
+**Step 4** — Identify the posterior parameters:
+
+$$v_n = \frac{1}{A} = \left(\frac{1}{v_0} + \frac{n}{\sigma^2}\right)^{-1}, \qquad m_n = \frac{B}{A} = v_n\!\left(\frac{m_0}{v_0} + \frac{n\bar x}{\sigma^2}\right)$$
+
+$$\boxed{\mu \mid x \;\sim\; N(m_n,\; v_n)}$$
+
+:::
+
+---
+
+## ⚡ The Precision Interpretation
+
+::: {style="font-size: 60%;"}
+
+Define **precision** = inverse variance. The posterior variance formula says:
+
+$$\underbrace{\frac{1}{v_n}}_{\text{posterior precision}} = \underbrace{\frac{1}{v_0}}_{\text{prior precision}} + \underbrace{\frac{n}{\sigma^2}}_{\text{data precision}}$$
+
+**Precisions add.** This is the Normal–Normal analog of:
+
+- Beta–Binomial: $(a+b)_\text{post} = (a+b)_\text{prior} + n$
+- Gamma–Poisson: $b_\text{post} = b_\text{prior} + T$
+
+The **posterior mean** as a precision-weighted average:
+
+$$m_n = \underbrace{\frac{1/v_0}{1/v_0 + n/\sigma^2}}_{\text{prior weight}} \cdot m_0 + \underbrace{\frac{n/\sigma^2}{1/v_0 + n/\sigma^2}}_{\text{data weight}} \cdot \bar x$$
+
+- More precise prior (small $v_0$) → posterior mean pulled toward $m_0$ 🧲
+- More data (large $n$) → posterior mean pulled toward $\bar x$ 📈
+
+:::
+
+---
+
+## 🔢 Quick Check — Apply the Formulas
+
+::: {style="font-size: 60%;"}
+
+**Problem:** $\mu \sim N(0,4)$, known $\sigma^2 = 4$, three observations with sample mean 4. What is the posterior?
+
+**Compute posterior precision:**
+
+$$\frac{1}{v_n} = \frac{1}{4} + \frac{3}{4} = 1 \quad \Rightarrow \quad v_n = 1$$
+
+**Compute posterior mean:**
+
+$$m_n = v_n\!\left(\frac{0}{4} + \frac{3 \cdot 4}{4}\right) = 1 \cdot (0 + 3) = 3$$
+
+**Posterior:** $\mu \mid x \sim N(3, 1)$
+
+> ✅ Answer: $N(3,1)$. The posterior mean (3) equals the sample mean (4) pulled toward the prior mean (0), weighted by precisions.
+
+:::
+
+---
+
+## 🔬 Full Worked Example — Calibration Data
+
+::: {style="font-size: 60%;"}
+
+Signed measurement errors (mm): $0, 2, 3, 4, 6$. Prior: $\mu \sim N(0, 4)$. Known $\sigma^2 = 4$ (so $\sigma = 2$ mm).
+
+**Data:** $\bar x = (0+2+3+4+6)/5 = 3$, $n = 5$, $m_0 = 0$, $v_0 = 4$.
+
+**Posterior variance:**
+
+$$v_n = \left(\frac{1}{4} + \frac{5}{4}\right)^{-1} = \left(\frac{6}{4}\right)^{-1} = \frac{2}{3}$$
+
+**Posterior mean:**
+
+$$m_n = \frac{2}{3}\!\left(\frac{0}{4} + \frac{5 \cdot 3}{4}\right) = \frac{2}{3} \cdot \frac{15}{4} = \frac{30}{12} = 2.5$$
+
+**Posterior:** $\mu \mid x \sim N(2.5,\; 2/3)$
+
+Posterior mean (2.5) lies between prior mean (0) and sample mean (3). ✓
+
+Prior weight: $\frac{1}{6}$ on $m_0 = 0$. Data weight: $\frac{5}{6}$ on $\bar x = 3$.
+
+:::
+
+---
+
+## 💻 Posterior Summaries in R
+
+::: {style="font-size: 60%;"}
+
+```r
+mn <- 2.5
+vn <- 2 / 3
+
+# 95% credible interval
+qnorm(c(0.025, 0.975), mean = mn, sd = sqrt(vn))
+# [1] 0.900  4.100
+
+# Pr(mu > 2 | x)
+pnorm(2, mean = mn, sd = sqrt(vn), lower.tail = FALSE)
+# [1] 0.730
+```
+
+> ⚠️ **R convention:** `dnorm`, `pnorm`, `qnorm` take **`sd`** (standard deviation), **not** variance. Always pass `sqrt(vn)`, never `vn`.
+
+**Interpretation:** Given the model, prior, and data, there is a 73% posterior probability that the average measurement error exceeds 2 mm.
+
+**Full posterior summary for $\mu \mid x \sim N(2.5, 2/3)$:**
+
+| Posterior mean | 2.500 mm |
+|---|---|
+| Posterior SD | $\sqrt{2/3} \approx 0.816$ mm |
+| 95% credible interval | $(0.900, 4.100)$ mm |
+| $\Pr(\mu > 2 \mid x)$ | 0.730 |
+
+:::
+
+---
+
+## 🔮 Posterior Predictive — Normal–Normal
+
+::: {style="font-size: 45%;"}
+
+For a **future** observation $X_\text{new}$ from the same model:
+
+$$X_\text{new} = \mu + \varepsilon_\text{new}, \quad \varepsilon_\text{new} \sim N(0, \sigma^2) \text{ independent of data}$$
+
+**Given the observed data:**
+
+- $\mu \sim N(m_n, v_n)$
+- $\varepsilon_\text{new} \sim N(0, \sigma^2)$, independent
+
+**Sum of independent normals is normal.** Add means and add variances:
+
+$$\boxed{X_\text{new} \mid x \;\sim\; N\!\left(m_n,\; \underbrace{\sigma^2}_{\text{future noise}} + \underbrace{v_n}_{\text{mean uncertainty}}\right)}$$
+
+The predictive variance has **two sources:**
+
+1. $\sigma^2$ = irreducible measurement noise (even if we knew $\mu$ exactly)
+2. $v_n$ = our remaining uncertainty about $\mu$
+
+> ❌ Using $N(m_n, \sigma^2)$ misses source 2 — it plugs in $\hat\mu = m_n$ and ignores posterior uncertainty.
+
+:::
+
+---
+
+## 📏 Comparing Posterior and Predictive
+
+::: {style="font-size: 60%;"}
+
+For the calibration example ($m_n = 2.5$, $v_n = 2/3$, $\sigma^2 = 4$):
+
+| | Bias $\mu$ | Next error $X_\text{new}$ |
+|---|---|---|
+| Mean | 2.5 | 2.5 |
+| Variance | $2/3$ | $4 + 2/3 = 14/3$ |
+| SD | $0.816$ mm | $2.160$ mm |
+| 95% interval | $(0.90, 4.10)$ | $(-1.73, 6.73)$ |
+| $\Pr(\cdot > 2 \mid x)$ | 0.730 | 0.592 |
+
+> The predictive interval is **always wider** than the posterior interval for $\mu$. A future measurement can deviate from the true bias, which the posterior interval doesn't account for.
+
+**They are different questions:** An uncertain future measurement and an uncertain average error are different targets.
+
+:::
+
+---
+
+## 🎲 Simulation-Based Predictive Inference
+
+::: {style="font-size: 60%;"}
+
+```r
+set.seed(42504)
+M <- 100000
+
+# Step 1: Draw mu from the posterior
+mu_draw <- rnorm(M, mean = 2.5, sd = sqrt(2/3))
+
+# Step 2: For each mu, draw a future observation
+x_new <- rnorm(M, mean = mu_draw, sd = 2)   # sd = sigma = 2
+
+# Estimate Pr(X_new > 2 | x)
+mean(x_new > 2)           # ≈ 0.592
+sd(x_new > 2) / sqrt(M)  # Monte Carlo SE (MCSE)
+```
+
+> 🔁 Each replication draws a bias $\mu$, then a measurement around that bias — correctly propagating **both** sources of uncertainty.
+
+**Why simulate?** Even though the predictive is $N(2.5, 14/3)$ analytically, simulation generalizes to any quantity of the future observation (e.g., non-linear functions, multiple future observations, non-conjugate models).
+
+**More replications $M$:** MCSE $\propto M^{-1/2}$. Four times as many replications halves the MCSE. This approximates the **same** posterior more accurately — it does not reduce posterior uncertainty itself.
+
+:::
+
+---
+
+## 📐 Sensitivity: Prior Strength
+
+::: {style="font-size: 60%;"}
+
+**What happens if we change the prior variance $v_0$?**
+
+Same data ($n=5$, $\bar x = 3$) and same prior center ($m_0 = 0$), but different prior SD:
+
+| Prior SD $\sqrt{v_0}$ | Prior weight | Posterior mean |
+|---|---|---|
+| 1 (strong prior) | $4/(4+5) = 0.44$ | $0 \times 0.44 + 3 \times 0.56 = 1.67$ |
+| 2 (moderate prior) | $1/6 = 0.17$ | $0 \times 0.17 + 3 \times 0.83 = 2.50$ |
+| 4 (weak prior) | $1/16 \approx 0.06$ | $0 \times 0.06 + 3 \times 0.94 = 2.82$ |
+
+A **smaller** prior SD (more precise prior) gives more weight to $m_0 = 0$, pulling the posterior mean closer to zero.
+
+**Model checking questions:**
+- Does one stable bias describe all measurements?
+- Is the known variance appropriate for current conditions?
+- Are measurements independent given the bias?
+- Do outliers or skewness challenge the normal model?
+
+:::
+
+---
+
+## 🚨 Common Normal–Normal Mistakes
+
+::: {style="font-size: 45%;"}
+
+❌ **Mistake 1:** Confusing variance $v_n$ with SD $\sqrt{v_n}$.
+
+- `qnorm(..., sd = vn)` ❌ uses the wrong scale
+- `qnorm(..., sd = sqrt(vn))` ✅
+
+❌ **Mistake 2:** Using $N(m_n, \sigma^2)$ for prediction — missing $+v_n$.
+
+- Predictive variance $= \sigma^2 + v_n$, not just $\sigma^2$.
+
+❌ **Mistake 3:** Forgetting that **precisions add**, not variances.
+
+- $1/v_n = 1/v_0 + n/\sigma^2$ ✅ (correct)
+- $v_n = v_0 + \sigma^2/n$ ❌ (wrong!)
+
+❌ **Mistake 4:** Confusing "more observations $n$" with "more simulation draws $M$."
+
+- More $n$ → posterior variance $v_n$ decreases (real information)
+- More $M$ → MCSE decreases (better approximation of same posterior)
+
+> ✅ Always verify: posterior mean lies between $m_0$ and $\bar x$.
+
+:::
+
+---
+
+
+# 📐 Lecture 5 — $\sigma^2$ Unknown: Normal–Gamma
+
+---
+
+## 🤔 What Changes from Lecture 4?
+
+::: {style="font-size: 60%;"}
+
+**Lecture 4 recap:** $X_i \mid \mu \overset{\text{iid}}{\sim} N(\mu, \sigma^2)$ with $\sigma^2$ **known** → posterior $\mu \mid x \sim N(m_n, v_n)$.
+
+**Today:** Both $\mu$ and $\sigma^2$ are **unknown.** We need a joint posterior $\pi(\mu, \sigma^2 \mid x)$.
+
+Same calibration data: $0, 2, 3, 4, 6$ mm.
+
+> ⚠️ **Tempting shortcut:** Plug in the sample variance $s^2$ and treat it as known. This **omits uncertainty about $\sigma^2$** — the posterior becomes overconfident.
+
+**Today's map:**
+
+1. Specify a joint prior for $\mu$ and precision $\lambda = 1/\sigma^2$
+2. Update to get the joint Normal–Gamma posterior
+3. Distinguish **conditional** ($\mu \mid \lambda, x$) vs. **marginal** ($\mu \mid x$) inference
+4. Generate **paired** posterior draws by direct simulation
+5. Form the posterior predictive, averaging over **both** unknowns
+
+> 🔑 **Main idea:** A joint posterior supports several different conditional and marginal questions.
+
+:::
+
+---
+
+## 🔧 Setup: Reparametrize with Precision $\lambda$
+
+::: {style="font-size: 60%;"}
+
+Work with **precision** $\lambda = 1/\sigma^2 > 0$. The model becomes:
+
+$$X_i \mid \mu, \lambda \;\overset{\text{iid}}{\sim}\; N(\mu, 1/\lambda)$$
+
+**Prior for $\lambda$** — Gamma family, shape–rate convention:
+
+$$\lambda \sim \text{Gamma}(a_0, b_0), \qquad E(\lambda) = a_0/b_0, \quad E(\sigma^2) = \frac{b_0}{a_0-1} \text{ for } a_0>1$$
+
+**Prior for $\mu$ conditional on $\lambda$:**
+
+$$\mu \mid \lambda \sim N\!\left(m_0,\; \frac{1}{\kappa_0 \lambda}\right), \quad \kappa_0 > 0$$
+
+- $m_0$: centers prior beliefs about the mean
+- $\kappa_0$: controls prior information about $\mu$ relative to one observation
+- The conditional variance $1/(\kappa_0\lambda)$ is tied to $\lambda$ — larger $\lambda$ (more precise instrument) gives a tighter prior on $\mu$
+
+**Joint prior:** $\pi(\mu, \lambda) = \pi(\mu \mid \lambda)\,\pi(\lambda)$ — this is the **Normal–Gamma prior.** It makes $\mu$ and $\lambda$ **dependent.**
+
+:::
+
+---
+
+## 📦 The Likelihood Now Uses $Q$
+
+::: {style="font-size: 60%;"}
+
+Define $\bar x = n^{-1}\sum_i x_i$ and $Q = \sum_i(x_i - \bar x)^2$ (sample scatter).
+
+**Joint likelihood:**
+
+$$L(\mu, \lambda \mid x) \propto \lambda^{n/2} \exp\!\left\{-\frac{\lambda}{2}\bigl[Q + n(\bar x - \mu)^2\bigr]\right\}$$
+
+**What's new vs. Lecture 4?**
+
+| | Lecture 4 ($\sigma^2$ known) | Lecture 5 ($\sigma^2$ unknown) |
+|---|---|---|
+| Prefactor | Constant (drops out) | $\lambda^{n/2}$ — depends on unknown $\lambda$ |
+| $Q$ term | Constant (drops out) | Informs our posterior for $\lambda$ |
+| Data summaries needed | $n$, $\bar x$ | $n$, $\bar x$, $Q$ |
+
+> 🎯 When $\sigma^2$ is known, $Q$ is constant and disappears. When $\sigma^2$ is unknown, $Q$ is essential — it tells us how much the data vary around their mean, updating our belief about precision.
+
+:::
+
+---
+
+## 🧮 Completing the Square in $\mu$
+
+::: {style="font-size: 60%;"}
+
+From the likelihood and the conditional prior, the $\mu$-dependent exponent terms are:
+
+$$n(\bar x - \mu)^2 + \kappa_0\lambda(\mu - m_0)^2$$
+
+**Expand and collect $\mu^2$ and $\mu$ terms:**
+
+$$= (\kappa_0 + n)\lambda\,\mu^2 - 2(\kappa_0 m_0 + n\bar x)\lambda\,\mu + \text{const in }\mu$$
+
+**Complete the square:**
+
+$$= \kappa_n\lambda(\mu - m_n)^2 + \underbrace{\frac{\kappa_0 n}{\kappa_n}(\bar x - m_0)^2}_{\text{prior–data disagreement}}$$
+
+where:
+
+$$\kappa_n = \kappa_0 + n, \qquad m_n = \frac{\kappa_0 m_0 + n\bar x}{\kappa_n}$$
+
+The **prior–data disagreement** term $\frac{\kappa_0 n}{\kappa_n}(\bar x - m_0)^2$ feeds into the precision update $b_n$ — if $\bar x$ is far from $m_0$, more uncertainty is added to $\lambda$.
+
+:::
+
+---
+
+## 🧮 The Full Normal–Gamma Update
+
+::: {style="font-size: 60%;"}
+
+After multiplying likelihood × prior and completing the square, the joint posterior kernel factors as:
+
+$$\pi(\mu, \lambda \mid x) \propto \underbrace{\lambda^{1/2}e^{-\kappa_n\lambda(\mu-m_n)^2/2}}_{\text{conditional Normal in }\mu} \cdot \underbrace{\lambda^{a_n-1}e^{-b_n\lambda}}_{\text{Gamma in }\lambda}$$
+
+The **four updated parameters** are:
+
+$$\kappa_n = \kappa_0 + n$$
+
+$$m_n = \frac{\kappa_0 m_0 + n\bar x}{\kappa_n}$$
+
+$$a_n = a_0 + \frac{n}{2}$$
+
+$$b_n = b_0 + \frac{1}{2}\!\left[Q + \frac{\kappa_0 n}{\kappa_n}(\bar x - m_0)^2\right]$$
+
+So:
+
+$$\lambda \mid x \sim \text{Gamma}(a_n, b_n), \qquad \mu \mid \lambda, x \sim N\!\left(m_n,\; \frac{1}{\kappa_n\lambda}\right)$$
+
+The Normal–Gamma structure is **preserved:** $\pi(\mu,\lambda\mid x) = \pi(\mu\mid\lambda,x)\,\pi(\lambda\mid x)$.
+
+:::
+
+---
+
+## 💡 Reading the Four Update Rules
+
+::: {style="font-size: 60%;"}
+
+| Parameter | Update | Meaning |
+|---|---|---|
+| $\kappa_n = \kappa_0 + n$ | Add $n$ | Prior obs. count accumulates |
+| $m_n = \frac{\kappa_0 m_0 + n\bar x}{\kappa_n}$ | Weighted avg | Posterior mean between $m_0$ and $\bar x$ |
+| $a_n = a_0 + n/2$ | Add $n/2$ | Each obs. adds $\frac{1}{2}$ d.f. to precision |
+| $b_n = b_0 + \frac{1}{2}[Q + \frac{\kappa_0 n}{\kappa_n}(\bar x - m_0)^2]$ | Add scatter + disagreement | Larger scatter or prior–data gap → larger $b_n$ → smaller precision |
+
+**Two contributions to $b_n$:**
+
+- **Sample scatter** $Q = \sum(x_i - \bar x)^2$ — how spread out the data are around $\bar x$
+- **Prior–data disagreement** $\frac{\kappa_0 n}{\kappa_n}(\bar x - m_0)^2$ — penalty when $\bar x$ is far from $m_0$
+
+At fixed $a_n$, larger $b_n$ → smaller expected precision → larger expected variance.
+
+:::
+
+---
+
+## 🔬 Worked Example — Calibration Data
+
+::: {style="font-size: 60%;"}
+
+Data: $0, 2, 3, 4, 6$ mm. Prior: $m_0=0$, $\kappa_0=1$, $a_0=3$, $b_0=8$.
+
+**Data summaries:** $n=5$, $\bar x=3$, $Q=(0-3)^2+(2-3)^2+(3-3)^2+(4-3)^2+(6-3)^2=9+1+0+1+9=20$.
+
+**Update step by step:**
+
+$$\kappa_n = 1+5 = 6, \qquad m_n = \frac{1\cdot0+5\cdot3}{6} = 2.5$$
+
+$$a_n = 3+\frac{5}{2} = 5.5$$
+
+$$b_n = 8 + \frac{1}{2}\!\left[20 + \frac{1\cdot5}{6}(3-0)^2\right] = 8 + \frac{1}{2}\!\left[20 + \frac{45}{6}\right] = 8 + \frac{1}{2}(27.5) = 21.75$$
+
+**Posterior:**
+
+$$\lambda \mid x \sim \text{Gamma}(5.5,\; 21.75), \qquad \mu \mid \lambda, x \sim N\!\left(2.5,\; \frac{1}{6\lambda}\right)$$
+
+$$E(\lambda \mid x) = 5.5/21.75 \approx 0.253 \text{ mm}^{-2}, \qquad E(\sigma^2 \mid x) = 21.75/4.5 \approx 4.833 \text{ mm}^2$$
+
+:::
+
+---
+
+## ⚠️ Jensen's Inequality — Don't Swap $E$ and $1/\cdot$
+
+::: {style="font-size: 60%;"}
+
+A critical point from the worked example:
+
+$$E(\sigma^2 \mid x) = E(1/\lambda \mid x) = \frac{b_n}{a_n - 1} = \frac{21.75}{4.5} \approx 4.833 \text{ mm}^2$$
+
+$$\frac{1}{E(\lambda \mid x)} = \frac{b_n}{a_n} = \frac{21.75}{5.5} \approx 3.955 \text{ mm}^2$$
+
+These are **not the same!** Since $f(\lambda) = 1/\lambda$ is convex, Jensen's inequality gives:
+
+$$E(1/\lambda) > 1/E(\lambda) \quad \text{always}$$
+
+The correct formula for expected variance is $b_n/(a_n-1)$, not $b_n/a_n$.
+
+**Prior expected variance check:**
+
+$$E(\sigma^2) = \frac{b_0}{a_0-1} = \frac{8}{2} = 4 \text{ mm}^2$$
+
+The data slightly increased our estimate of measurement variance: $4 \to 4.833$ mm$^2$. Makes sense — $Q=20$ is fairly large for only 5 obs.
+
+:::
+
+---
+
+## 🔀 Conditional vs. Marginal Posterior for $\mu$
+
+::: {style="font-size: 60%;"}
+
+There are **two different** posterior distributions for $\mu$:
+
+**Conditional posterior** (fix $\lambda$ at some value):
+
+$$\mu \mid \lambda, x \sim N\!\left(m_n,\; \frac{1}{\kappa_n\lambda}\right)$$
+
+This is a Normal for each fixed $\lambda$. It acts as if we know $\lambda$ exactly.
+
+**Marginal posterior** (integrate out $\lambda$):
+
+$$\pi(\mu \mid x) = \int_0^\infty \pi(\mu \mid \lambda, x)\;\pi(\lambda \mid x)\;d\lambda$$
+
+Mixing Normals over a Gamma-distributed precision produces a **Student-$t$** distribution with heavier tails.
+
+> ❌ **Mistake #1:** Using $\mu \mid \lambda, x$ as if it were the marginal $\mu \mid x$.
+
+The conditional posterior is **too narrow** — small values of $\lambda$ give very wide conditionals, but these get averaged in. The marginal correctly reflects uncertainty about $\lambda$.
+
+**Effect on scatter:** More scatter $Q$ → larger $b_n$ → smaller expected $\lambda$ → wider marginal posterior for $\mu$.
+
+:::
+
+---
+
+## 📐 The Marginal Posterior is Student-$t$
+
+::: {style="font-size: 60%;"}
+
+Write $t_\nu(m, s)$ for $m + s\cdot T$ where $T \sim t_\nu$ (standard Student-$t$ with $\nu$ d.f.).
+
+**Marginal posterior:**
+
+$$\mu \mid x \;\sim\; t_{2a_n}\!\left(m_n,\; s_\mu\right), \qquad s_\mu = \sqrt{\frac{b_n}{a_n\kappa_n}}$$
+
+$s_\mu$ is the **scale**, not the SD. For $\nu > 2$:
+
+$$\text{SD}(t_\nu(m,s)) = s\sqrt{\frac{\nu}{\nu-2}} > s$$
+
+For the calibration example ($\nu = 2\times5.5 = 11$):
+
+$$s_\mu = \sqrt{\frac{21.75}{5.5 \times 6}} = \sqrt{\frac{21.75}{33}} \approx 0.812 \text{ mm}$$
+
+$$\text{SD}(\mu \mid x) = 0.812\sqrt{\frac{11}{9}} \approx 0.898 \text{ mm}$$
+
+| Summary | Value |
+|---|---|
+| Posterior mean | 2.500 mm |
+| Posterior SD | 0.898 mm |
+| 95% credible interval | $(0.713,\; 4.287)$ mm |
+| $\Pr(\mu > 2 \mid x)$ | 0.725 |
+
+:::
+
+---
+
+## 💻 R Code — Marginal Posterior for $\mu$
+
+::: {style="font-size: 60%;"}
+
+```r
+# Calibration example: an = 5.5, bn = 21.75, kn = 6, mn = 2.5
+s_mu <- sqrt(21.75 / (5.5 * 6))   # scale = 0.812
+
+# 95% credible interval using Student-t quantiles
+2.5 + s_mu * qt(c(0.025, 0.975), df = 11)
+# [1] 0.713  4.287
+
+# Pr(mu > 2 | x)  — exact
+pt((2 - 2.5) / s_mu, df = 11, lower.tail = FALSE)
+# [1] 0.725
+```
+
+> ⚠️ `qt` and `pt` treat the second argument as the scale of $t_\nu(m,s)$, not its SD. The SD is $s_\mu \times \sqrt{\nu/(\nu-2)}$.
+
+**Compare with Lecture 4 result** (same data, but $\sigma^2=4$ assumed known):
+
+| | Lecture 4 ($\sigma^2$ known) | Lecture 5 ($\sigma^2$ unknown) |
+|---|---|---|
+| Posterior SD for $\mu$ | 0.816 mm | 0.898 mm |
+| 95% CI | $(0.900, 4.100)$ | $(0.713, 4.287)$ |
+| Distribution | Normal | Student-$t_{11}$ |
+
+Accounting for uncertainty in $\sigma^2$ gives **wider, heavier-tailed** intervals. ✓
+
+:::
+
+---
+
+## 🔮 Posterior Predictive — Averaging Over Both Unknowns
+
+::: {style="font-size: 60%;"}
+
+For future observation $X_\text{new}$, assume conditional independence from data given $(\mu, \lambda)$:
+
+$$X_\text{new} \mid \mu, \lambda, x \sim N(\mu, 1/\lambda)$$
+
+**Step 1 — average over $\mu \mid \lambda, x$:**
+
+$$X_\text{new} \mid \lambda, x \sim N\!\left(m_n,\; \frac{1}{\lambda} + \frac{1}{\kappa_n\lambda}\right) = N\!\left(m_n,\; \frac{1}{\lambda}\!\left(1 + \frac{1}{\kappa_n}\right)\right)$$
+
+The same Lecture 4 logic: conditional predictive variance = future noise + mean uncertainty.
+
+**Step 2 — average over $\lambda \mid x$** (integrates to Student-$t$):
+
+$$\boxed{X_\text{new} \mid x \;\sim\; t_{2a_n}\!\left(m_n,\; s_\text{pred}\right), \quad s_\text{pred} = \sqrt{\frac{b_n}{a_n}\!\left(1+\frac{1}{\kappa_n}\right)}}$$
+
+For the calibration example:
+
+$$s_\text{pred} = \sqrt{\frac{21.75}{5.5}\!\left(1+\frac{1}{6}\right)} \approx 2.149 \text{ mm}$$
+
+95% predictive interval: $(-2.228,\; 7.228)$ mm · $\Pr(X_\text{new}>2 \mid x) \approx 0.590$
+
+:::
+
+---
+
+## 📊 Predictive Variance Decomposition
+
+::: {style="font-size: 60%;"}
+
+For $a_n > 1$, the predictive variance decomposes as:
+
+$$\text{Var}(X_\text{new} \mid x) = \underbrace{E(1/\lambda \mid x)}_{\text{average future noise}} + \underbrace{\text{Var}(\mu \mid x)}_{\text{mean uncertainty}} = \frac{b_n}{a_n-1}\!\left(1 + \frac{1}{\kappa_n}\right)$$
+
+**Same two sources as Lecture 4** — but now $\sigma^2$ is replaced by its posterior expectation $E(1/\lambda \mid x) = b_n/(a_n-1)$.
+
+| | Lecture 4 | Lecture 5 |
+|---|---|---|
+| Future noise | $\sigma^2$ (known) | $E(1/\lambda \mid x) = b_n/(a_n-1)$ |
+| Mean uncertainty | $v_n$ (Normal) | $\text{Var}(\mu\mid x)$ (Student-$t$) |
+| Predictive | $N(m_n, \sigma^2+v_n)$ | $t_{2a_n}(m_n, s_\text{pred})$ |
+
+> 🔑 Uncertain precision affects **both** components: the average noise level and the heavier tails of the predictive Student-$t$ vs. Normal.
+
+:::
+
+---
+
+## 🎲 Three Lines for a Predictive Draw
+
+::: {style="font-size: 60%;"}
+
+Because the joint posterior is Normal–Gamma, **direct simulation** works — no MCMC needed:
+
+```r
+set.seed(42505);  M <- 100000
+
+# Step 1: draw lambda from its marginal Gamma posterior
+lambda <- rgamma(M, shape = 5.5, rate = 21.75)
+
+# Step 2: draw mu from its conditional Normal given lambda
+mu <- rnorm(M, mean = 2.5, sd = sqrt(1 / (6 * lambda)))
+
+# Step 3: draw future obs from Normal given (mu, lambda)
+x_new <- rnorm(M, mean = mu, sd = sqrt(1 / lambda))
+
+mean(mu > 2)            # ≈ 0.725 (exact posterior prob.)
+mean(x_new > 2)         # ≈ 0.590 (exact predictive prob.)
+sd(mu > 2) / sqrt(M)   # MCSE
+```
+
+> 🔑 Keep $\mu^{(r)}$ **paired** with $\lambda^{(r)}$ within each replication. Each pair is one joint draw from $\pi(\mu,\lambda\mid x)$.
+
+> ❌ **Mistake #5:** Drawing $\mu^{(r)}$ and $\lambda^{(r)}$ independently — this breaks the joint structure, since $\mu$ and $\lambda$ are **not** independent under the posterior.
+
+:::
+
+---
+
+## 🚨 Common Mistakes — Lecture 5
+
+::: {style="font-size: 60%;"}
+
+❌ **Mistake 1:** Using $\mu \mid \lambda, x$ (conditional Normal) as the marginal posterior $\mu \mid x$.
+
+- Conditional is too narrow — ignores uncertainty about $\lambda$.
+- Use the Student-$t$ marginal: $\mu \mid x \sim t_{2a_n}(m_n, s_\mu)$.
+
+❌ **Mistake 2:** Confusing Gamma rate with scale.
+
+- In R: always `rgamma(M, shape = an, rate = bn)`.
+
+❌ **Mistake 3:** Treating the Student-$t$ scale $s_\mu$ as the SD.
+
+- $\text{SD} = s_\mu\sqrt{\nu/(\nu-2)} > s_\mu$ for any finite $\nu$.
+
+❌ **Mistake 4:** Using $1/E(\lambda \mid x) = b_n/a_n$ for $E(\sigma^2 \mid x)$.
+
+- Correct: $E(\sigma^2 \mid x) = E(1/\lambda \mid x) = b_n/(a_n-1)$.
+
+❌ **Mistake 5:** Breaking the $\mu$–$\lambda$ pairing in simulation.
+
+- $\mu$ and $\lambda$ are dependent under the joint posterior. Always draw them together.
+
+:::
+
+---
+
+## 📌 Lecture 5 Quick Reference
+
+::: {style="font-size: 57%;"}
+
+**Model:** $X_i \mid \mu, \lambda \overset{\text{iid}}{\sim} N(\mu, 1/\lambda)$ · **Data:** $n$, $\bar x$, $Q = \sum(x_i-\bar x)^2$
+
+**Four update rules:**
+
+$$\kappa_n = \kappa_0 + n \qquad m_n = \frac{\kappa_0 m_0 + n\bar x}{\kappa_n} \qquad a_n = a_0 + \frac{n}{2} \qquad b_n = b_0 + \frac{1}{2}\!\left[Q + \frac{\kappa_0 n}{\kappa_n}(\bar x-m_0)^2\right]$$
+
+**Posteriors:**
+
+$$\lambda\mid x\sim\text{Gamma}(a_n,b_n) \qquad \mu\mid\lambda,x\sim N\!\left(m_n,\frac{1}{\kappa_n\lambda}\right) \qquad \mu\mid x\sim t_{2a_n}\!\left(m_n,\sqrt{\frac{b_n}{a_n\kappa_n}}\right)$$
+
+**Predictive:** $X_\text{new}\mid x\sim t_{2a_n}\!\left(m_n,\;\sqrt{\frac{b_n}{a_n}\!\left(1+\frac{1}{\kappa_n}\right)}\right)$
+
+**Key expectations:** $E(\lambda\mid x)=a_n/b_n$ · $E(\sigma^2\mid x)=b_n/(a_n-1)$ · $1/E(\lambda)\neq E(1/\lambda)$ ⚠️
+
+**Simulation order:** $\lambda\sim\text{Gamma}(a_n,b_n)$ → $\mu\sim N(m_n,1/(\kappa_n\lambda))$ → $X_\text{new}\sim N(\mu,1/\lambda)$
+
+:::
+
+---
+
+# 🏆 Summary — All Three Conjugate Pairs
+
+---
+
+## 📋 Side-by-Side Comparison
+
+::: {style="font-size: 55%;"}
+
+| | 🪙 **Beta–Binomial** | ⏱️ **Gamma–Poisson** | 📊 **Normal–Normal** |
+|---|---|---|---|
+| **Unknown** | Proportion $\theta\in(0,1)$ | Rate $\theta>0$ | Mean $\mu\in\mathbb{R}$ |
+| **Data model** | $Y\sim\text{Bin}(n,\theta)$ | $X_i\sim\text{Pois}(t_i\theta)$ | $X_i\sim N(\mu,\sigma^2)$ |
+| **Sufficient stat** | $y$ (successes) | $S$ (count), $T$ (exposure) | $\bar x$ (sample mean) |
+| **Prior** | $\text{Beta}(a,b)$ | $\text{Gamma}(a,b)$ **rate** | $N(m_0,v_0)$ |
+| **Posterior** | $\text{Beta}(a+y,\, b+n-y)$ | $\text{Gamma}(a+S,\, b+T)$ | $N(m_n,v_n)$ |
+| **Update rule** | $a+= y$; $b+=n-y$ | $a+= S$; $b+=T$ | Precisions add |
+| **Post. mean** | $\frac{a+y}{a+b+n}$ | $\frac{a+S}{b+T}$ | $v_n\!\left(\frac{m_0}{v_0}+\frac{n\bar x}{\sigma^2}\right)$ |
+| **What adds** | Successes→$a$; failures→$b$ | Count→$a$; exposure→$b$ | Prior + data precision |
+| **Predictive** | Beta-Binomial | Negative Binomial | $N(m_n, \sigma^2+v_n)$ |
+
+:::
+
+---
+
+## ➕ Information Always Accumulates
+
+::: {style="font-size: 58%;"}
+
+All three models share the same deep structure. Prior information + data information = posterior information.
+
+**🪙 Beta–Binomial — count accumulates:**
+
+$$(a+b)_\text{post} = \underbrace{(a+b)}_{\text{prior size}} + \underbrace{n}_{\text{data size}}$$
+
+**⏱️ Gamma–Poisson — exposure accumulates:**
+
+$$b_\text{post} = \underbrace{b}_{\text{prior exposure}} + \underbrace{T}_{\text{data exposure}}$$
+
+**📊 Normal–Normal — precision accumulates:**
+
+$$\underbrace{\frac{1}{v_n}}_{\text{posterior precision}} = \underbrace{\frac{1}{v_0}}_{\text{prior precision}} + \underbrace{\frac{n}{\sigma^2}}_{\text{data precision}}$$
+
+> 🌟 **Universal pattern:** As data grow, the data weight $\to 1$ — the data always wins eventually. The posterior mean always lies between the prior mean and the sample estimate, with weights proportional to information.
+
+:::
+
+---
+
+## 📌 Quick Reference — All Formulas
+
+::: {style="font-size: 55%;"}
+
+**Bayes' rule:** $\pi(\theta\mid x)\propto p(x\mid\theta)\cdot\pi(\theta)$
+
+**🪙 Beta–Binomial:**
+$$\text{Beta}(a,b)\xrightarrow{y \text{ successes},\; n-y \text{ failures}}\text{Beta}(a+y,\; b+n-y)$$
+
+**⏱️ Gamma–Poisson:**
+$$\text{Gamma}(a,b)\xrightarrow{S \text{ events},\; T \text{ exposure}}\text{Gamma}(a+S,\; b+T)$$
+
+**📊 Normal–Normal:**
+$$v_n=\!\left(\frac{1}{v_0}+\frac{n}{\sigma^2}\right)^{-1}, \qquad m_n=v_n\!\left(\frac{m_0}{v_0}+\frac{n\bar x}{\sigma^2}\right)$$
+
+**🔮 Predictive distributions:**
+
+- Normal–Normal: $X_\text{new}\mid x\sim N(m_n,\;\sigma^2+v_n)$
+- Gamma–Poisson: Negative Binomial, $\text{Var} = E(\theta\mid x)+\text{Var}(\theta\mid x)$
+
+**R warnings:**
+- Gamma: always write `rate = b`
+- Normal: always pass `sd = sqrt(vn)`, not `sd = vn`
+
+:::
+
+---
+
+## ✏️ Practice Problems
+
+::: {style="font-size: 58%;"}
+
+**1.** 🪙 Prior $\theta\sim\text{Beta}(3,3)$. Observe 7 successes in 10 trials. Find the posterior, posterior mean, and a 90% credible interval.
+
+**2.** ⏱️ Prior $\theta\sim\text{Gamma}(2,1)$. Observe 12 events over 4 hours. State the posterior. Find $\Pr(\theta>4\mid x)$. What is the posterior predictive variance for the next one-hour count?
+
+**3.** 📊 Prior $\mu\sim N(0,4)$, known $\sigma^2=4$. Observe $n=4$ with $\bar x=2$. Find $m_n$, $v_n$. Compute the 95% credible interval for $\mu$ and the predictive variance for one new observation.
+
+**4.** 🎟️ **Exit ticket (Lec 3).** Prior $\theta\sim\text{Gamma}(3,2)$. Four half-hour periods have counts $2, 0, 1, 3$. What are $S$ and $T$? What is the posterior? What is the predictive mean count for the next two hours?
+
+**5.** 🎟️ **Exit ticket (Lec 4).** Prior $\mu\sim N(0,4)$, $\sigma^2=4$, $n=4$ observations with mean 2. Why is the predictive interval for $X_\text{new}$ wider than the posterior interval for $\mu$?
+
+:::
+
+---
+
+## ✅ Solutions
+
+::: {style="font-size: 55%;"}
+
+**1.** Posterior: $\text{Beta}(3+7, 3+3) = \text{Beta}(10, 6)$. Mean $= 10/16 = 0.625$.
+`qbeta(c(0.05, 0.95), 10, 6)` → 90% CI.
+
+**2.** $S=12$, $T=4$. Posterior: $\text{Gamma}(14, 5)$. Mean $= 14/5 = 2.8$.
+`1 - pgamma(4, shape=14, rate=5)` $\approx 0.125$.
+Predictive variance $= E(\theta\mid x) + \text{Var}(\theta\mid x) = 14/5 + 14/25 = 70/25 + 14/25 = 84/25 = 3.36$.
+
+**3.** $v_n = (1/4 + 4/4)^{-1} = (5/4)^{-1} = 4/5$. $m_n = (4/5)(0/4 + 4\cdot2/4) = (4/5)(2) = 1.6$.
+95% CI: `qnorm(c(0.025, 0.975), 1.6, sqrt(4/5))`.
+Predictive variance $= 4 + 4/5 = 24/5 = 4.8$.
+
+**4.** $S = 2+0+1+3 = 6$, $T = 4 \times 0.5 = 2$ hours. Posterior: $\text{Gamma}(3+6, 2+2) = \text{Gamma}(9,4)$. Predictive mean for 2 hours $= t_\text{new} \times E(\theta\mid x) = 2 \times (9/4) = 4.5$.
+
+**5.** The posterior interval for $\mu$ captures only uncertainty about the mean bias. The predictive interval for $X_\text{new}$ also includes irreducible measurement noise $\sigma^2 = 4$: $\text{Var}(X_\text{new}\mid x) = v_n + \sigma^2 > v_n$.
+
+:::
+
+---
+
+# Thank you! {.smaller}
+
+::: r-stack
+Good luck on the exam! 🎉 Remember: **posterior ∝ prior × likelihood**
+:::
