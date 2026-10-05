@@ -78,7 +78,7 @@ where $\mu\perp\lambda$ a priori.
 
 ## [MCMC - Gibbs sampler, cont'd]{.r-fit-text}
 
-::: {style="font-size: 65%;"}
+::: {style="font-size: 60%;"}
 
 The full conditional distributions are:
 
