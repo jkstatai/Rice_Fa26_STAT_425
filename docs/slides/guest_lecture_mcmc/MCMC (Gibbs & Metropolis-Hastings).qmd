@@ -99,7 +99,7 @@ a0 <- 1
 b0 <- 4
 
 # Data
-x <- scan(url("https://www2.stat.duke.edu/~pdh10/FCBS/Exercises/school1.dat"))
+x <- scan(url("https://raw.githubusercontent.com/jkstatai/Rice_Fa26_STAT_425/main/docs/Data/school1.dat"))
 n <- length(x)
 xbar <- mean(x)
 ```
