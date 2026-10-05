@@ -1,0 +1,1242 @@
+---
+title: "MCMC (Gibbs & Metropolis-Hastings)"
+subtitle: "Code, Packages & Diagnostics"
+author: "Justin Kao"
+footer: "STAT 425 - Fall 2026"
+format:
+  revealjs:
+    html-math-method: mathjax
+    theme: slides.scss
+    transition: fade
+    logo: rice_icon.png
+    slide-number: true
+    self-contained: true
+    auto-stretch: true
+editor: 
+  markdown: 
+    wrap: 72
+---
+
+
+# 🧰 Course Tools {.center}
+<!-- 
+
+## RStudio: Your Data Science Playground {.smaller}
+
+> *I code the data, and I tell the story.*
+
+::: {.large .center}
+[1. Install R](https://cran.rstudio.com/)
+
+[2. Install Rstudio](https://posit.co/download/rstudio-desktop/)
+:::
+
+::: {style="font-size: 75%;"}
+<br>
+
+-->
+
+## Markdown & Quarto: Your Storytelling Superpowers
+::: {style="font-size: 75%;"}
+
+-   🧠 **R Markdown or Quarto:** Make sure it *knits*, *renders*, and
+    *saves* without RStudio crying.\
+    (If it knits, you’re officially a data scientist.)
+
+-   📝 [**Markdown
+    Basics**](https://quarto.org/docs/authoring/markdown-basics.html) —
+    Learn how to make text bold, italic, draw diagrams, or show off
+    anything you want to demonstrate.
+
+-   🚀 [**Hello,
+    Quarto**](https://quarto.org/docs/get-started/hello/rstudio.html) by
+    Dr. Mine Çetinkaya-Rundel (Duke University) — From *“What’s a
+    chunk?”* to *“Look, I just published my work on GitHub!”*
+:::
+
+# Markov Chain Monte Carlo(MCMC)
+
+## [MCMC - Gibbs sampler]{.r-fit-text}
+
+::: {style="font-size: 57%;"}
+
+Consider the model
+
+$$
+X_i \mid \mu,\lambda \overset{\mathrm{iid}}{\sim}
+N\left(\mu,\frac{1}{\lambda}\right),
+\qquad
+\mu\sim N(m_0,v_0),
+\qquad
+\lambda\sim \operatorname{Gamma}(a_0,b_0),
+$$
+
+where $\mu\perp\lambda$ a priori.
+
+:::
+
+
+## [MCMC - Gibbs sampler, cont'd]{.r-fit-text}
+
+::: {style="font-size: 65%;"}
+
+The full conditional distributions are:
+
+- $$\mu\mid\lambda,\mathbf{x} \sim N(m_n,v_n), \quad \text{where } m_n=\frac{n\lambda\bar{x}+m_0/v_0}{n\lambda+1/v_0}, \quad v_n=\left(n\lambda+\frac{1}{v_0}\right)^{-1}$$
+
+- $$\lambda\mid\mu,\mathbf{x} \sim \operatorname{Gamma}\left(a_0+\frac{n}{2},\; b_0+\frac{1}{2}\sum_{i=1}^n(x_i-\mu)^2\right)$$
+
+Let's set up our parameters first:
+$m_0=5, v_0=0.5, a_0=1, b_0=4$
+
+```{r, echo=TRUE}
+library(coda)
+
+# Parameters
+m0 <- 5
+v0 <- 0.5
+a0 <- 1
+b0 <- 4
+
+# Data
+x <- scan(url("https://www2.stat.duke.edu/~pdh10/FCBS/Exercises/school1.dat"))
+n <- length(x)
+xbar <- mean(x)
+```
+
+:::
+
+
+## [MCMC - Gibbs sampler, cont'd]{.r-fit-text}
+
+::: {style="font-size: 65%;"}
+
+``` {.r code-line-numbers="1-29|1-4|6-8|10-15|17-21|10-21|1-29"}
+# Storage
+n_iter <- 10000
+mu <- numeric(n_iter)
+lambda <- numeric(n_iter)
+
+# Initial values
+mu[1] <- xbar
+lambda[1] <- 1 / var(x)
+
+# Gibbs sampling
+for (t in 2:n_iter) {
+  # 1. Sample mu | lambda, x
+  vn <- 1 / (n * lambda[t-1] + 1/v0)
+  mn <- vn * (n * lambda[t-1] * xbar + m0/v0)
+  mu[t] <- rnorm(1, mn, sqrt(vn))
+  
+  # 2. Sample lambda | mu, x
+  an <- a0 + n/2
+  bn <- b0 + 0.5 * sum((x - mu[t])^2)
+  lambda[t] <- rgamma(1, shape = an, rate = bn)
+}
+
+# Burn-in and analysis
+burn_in <- 2000
+mu_samp <- mu[(burn_in + 1):n_iter]
+lambda_samp <- lambda[(burn_in + 1):n_iter]
+
+mu_mcmc <- mcmc(mu_samp)
+lambda_mcmc <- mcmc(lambda_samp)
+```
+
+```{r}
+# Storage
+n_iter <- 10000
+mu <- numeric(n_iter)
+lambda <- numeric(n_iter)
+
+# Initial values
+mu[1] <- xbar
+lambda[1] <- 1 / var(x)
+
+# Gibbs sampling
+for (t in 2:n_iter) {
+  # 1. Sample mu | lambda, x
+  vn <- 1 / (n * lambda[t-1] + 1/v0)
+  mn <- vn * (n * lambda[t-1] * xbar + m0/v0)
+  mu[t] <- rnorm(1, mn, sqrt(vn))
+  
+  # 2. Sample lambda | mu, x
+  an <- a0 + n/2
+  bn <- b0 + 0.5 * sum((x - mu[t])^2)
+  lambda[t] <- rgamma(1, shape = an, rate = bn)
+}
+
+# Burn-in and analysis
+burn_in <- 2000
+mu_samp <- mu[(burn_in + 1):n_iter]
+lambda_samp <- lambda[(burn_in + 1):n_iter]
+
+mu_mcmc <- mcmc(mu_samp)
+lambda_mcmc <- mcmc(lambda_samp)
+```
+
+:::
+
+
+## [MCMC - Gibbs sampler, cont'd]{.r-fit-text}
+
+::: {style="font-size: 50%;"}
+
+```{r, echo=TRUE}
+effectiveSize(mcmc(mu_samp))
+effectiveSize(mcmc(lambda_samp))
+par(mfrow = c(1, 2))
+acf(mu_samp, main = "ACF of mu")
+acf(lambda_samp, main = "ACF of lambda")
+par(mfrow = c(1, 1))
+```
+
+:::
+
+
+## [MCMC - Gibbs sampler, cont'd]{.r-fit-text}
+
+::: {style="font-size: 60%;"}
+
+```{r, echo=TRUE}
+plot(mu_mcmc, main = "Trace & Density of mu")
+```
+
+:::
+
+
+## [MCMC - Gibbs sampler, cont'd]{.r-fit-text}
+
+::: {style="font-size: 60%;"}
+
+```{r, echo=TRUE}
+plot(lambda_mcmc, main = "Trace & Density of lambda")
+```
+
+:::
+
+
+## [MCMC - Gibbs sampler, cont'd]{.r-fit-text}
+
+::: {style="font-size: 60%;"}
+
+Evaluate the marginal posterior density $p(\lambda \mid \mathbf{x})$ analytically up to a normalizing constant and overlay this density on your plot.
+
+```{r}
+# Define the unnormalized analytical posterior of lambda
+S <- sum((x - xbar)^2)
+post_lambda <- function(lam) {
+  lam <- ifelse(lam <= 0, NA, lam)
+  part1 <- lam^(a0 + n/2 - 1) * (n * v0 + 1/lam)^(-0.5)
+  part2 <- exp(-lam * (S + (n * v0 / (v0 + 1/(n*lam))) * (xbar - m0)^2) / 2 - b0 * lam)
+  part1 * part2
+}
+
+# Normalize using integrate()
+norm_const <- integrate(post_lambda, lower = 0.001, upper = Inf)$value
+
+# Evaluate normalized posterior on a grid
+grid <- seq(0.001, 0.15, length = 500)
+dens <- sapply(grid, post_lambda) / norm_const
+
+# Plot MCMC vs analytical posterior
+plot(density(lambda_samp),
+     main = "Posterior of lambda | x",
+     xlab = "lambda",
+     xlim = c(0, 0.15),
+     lwd = 2, col = "black")
+
+lines(grid, dens, col = "red", lwd = 2)
+legend("topright",
+       legend = c("Gibbs MCMC", "Analytical posterior"),
+       col = c("black", "red"),
+       lwd = 2)
+```
+
+:::
+
+## MCMC - Metropolis-Hastings Algorithm
+
+::: {style="font-size: 60%;"}
+Let's recap of Key Concepts
+
+-   **Step 1:** Propose a candidate sample from the proposal
+    (transition) distribution\
+    $$
+    g(x_{t+1} \mid x_t)
+    $$ For example, if the proposal is Normal,\
+    $$
+    g(x_{t+1} \mid x_t) = \mathcal{N}(x_t, \sigma^2)
+    $$
+
+-   **Step 2:** Accept the proposed value with probability\
+    $$
+    A(x_t \rightarrow x_{t+1})
+    $$
+
+Detail Balance Condition to reach stationary:
+$\quad p(a) T(a \rightarrow b)=p(b) T(b \rightarrow a), \quad \forall a, b$
+
+$$
+\begin{aligned}
+\frac{f(a)}{NC} g(b \mid a) A(a \rightarrow b)=\frac{f(b)}{NC } g(a \mid b) A(b \rightarrow a)
+\end{aligned}
+$$
+:::
+
+## MCMC - Metropolis-Hastings Algorithm
+
+::::: {style="font-size: 50%;"}
+$$
+\begin{aligned}
+\frac{f(a)}{NC} g(b \mid a) A(a \rightarrow b)=\frac{f(b)}{NC } g(a \mid b) A(b \rightarrow a)
+\end{aligned}
+$$ Rewrite the balance condition:
+
+$$\frac{A(a \rightarrow b)}{A(b \rightarrow a)}=\underbrace{\frac{f(b)}{f(a)}}_{r_f} \times \underbrace{\frac{g(a \mid b)}{g(b \mid a)}}_{r_g}$$
+
+-   **Scenario 1**:
+    $r_f r_g<1, A(a \rightarrow b)=r_f r_g, A(b \rightarrow a)=1$
+
+-   **Scenario 1**:
+    $r_f r_g>1, A(a \rightarrow b)= 1, A(b \rightarrow a)=\frac{1}{r_f r_g}$
+
+::: {.fragment .highlight-red}
+So $A(a \rightarrow b)=\operatorname{min}\left(r_f r_g, 1\right)$
+:::
+
+This matches the expression shown in Dr. Marina Vannucci’s slides:
+
+::: {.fragment .highlight-red}
+$$
+A(\theta_{t-1} \rightarrow \theta^* = \theta_t) = \rho\left(\theta^{(t-1)}, \theta^*\right)=\min \left\{\frac{p\left(\theta^* \mid x\right)}{p\left(\theta^{(t-1)} \mid x\right)} \frac{q\left(\theta^{(t-1)} \mid \theta^*\right)}{q\left(\theta^* \mid \theta^{(t-1)}\right)}, 1\right\}
+$$
+:::
+
+$$
+\theta^{(t)}=\left\{\begin{array}{l}
+\theta^* \quad \text { with probability } \rho\left(\theta^{(t-1)}, \theta^*\right) \\
+\theta^{(t-1)} \quad \text { with probability } \quad 1-\rho\left(\theta^{(t-1)}, \theta^*\right)
+\end{array}\right.
+$$
+:::::
+
+## [MCMC - Metropolis-Hastings Algorithm - Intuition]{.r-fit-text}
+
+::: {style="font-size: 60%;"}
+Let's assume the distribution is symmetric
+
+$$
+\frac{A(a \rightarrow b)}{A(b \rightarrow a)}=\underbrace{\frac{f(b)}{f(a)}}_{r_f} \times \underbrace{\frac{g(a \mid b)}{g(b \mid a)}}_{r_g} = \underbrace{\frac{f(b)}{f(a)}}_{r_f} = \frac{p(b)}{p(a)} = \frac{p\left(\theta^* \mid y\right)}{p\left(\theta^{(t-1)} \mid y\right)} = r
+$$
+
+$A(a \rightarrow b)=\operatorname{min}\left(1, \frac{f(b)}{f(a)}\right) =\operatorname{min}\left(1, \frac{p(b)}{p(a)}\right) = \operatorname{min}\left(1, \frac{p\left(\theta^* \mid y\right)}{p\left(\theta^{(t-1)} \mid y\right)}=r\right)$
+
+-   If $r>1$:
+
+    -   Intuition: Since $\theta^{(t-1)}$ is already in our set, we
+        should include $\theta^*$ as it has a higher probability than
+        $\theta^{(t-1)}$.
+    -   Procedure: Accept $\theta^*$ into our set, i.e. set
+        $\theta^{(s)}=\theta^*$.
+
+-   If $r<1$ :
+
+    -   Intuition: The relative frequency of $\theta$-values in our set
+        equal to $\theta^*$ compared to those equal to $\theta^{(t-1)}$
+        should be
+        $p\left(\theta^* \mid y\right) / p\left(\theta^{(t-1)} \mid y\right)=r$.
+        This means that for every instance of $\theta^{(t-1)}$, we
+        should have only a "fraction" of an instance of a $\theta^*$
+        value.
+    -   Procedure: Set $\theta^{(t)}$ equal to either $\theta^*$ or
+        $\theta^{(t-1)}$, with probability $r$ and $1-r$ respectively.
+:::
+
+## [MCMC - Metropolis-Hastings Algorithm(HW problem 1)]{.r-fit-text}
+
+::: {style="font-size: 57%;"}
+Consider the file `school1.` dat (from the Book website) which contains data on the amount of times students at a high school spent on studying or homework during an exam period. Suppose we fit the following model:
+
+$$
+\begin{aligned}
+Y_i & \sim \mathcal{N}\left(\mu, \sigma^2\right), \quad i=1, \ldots, n \\
+\mu & \sim \mathcal{N}\left(\mu_0, \tau_0^2\right)
+\end{aligned}
+$$
+
+with $\mu_0=5, \tau_0^2=0.5$. Let us fix $\sigma^2=1$. Implement a Metropolis-Hastings:
+
+```{r, echo=TRUE}
+library(coda)
+
+# Read data
+y <- scan(url("https://www2.stat.duke.edu/~pdh10/FCBS/Exercises/school1.dat"))
+n <- length(y)
+
+# Known hyperparameters
+mu0 <- 5
+tau0_sq <- 0.5
+sigma_sq <- 1
+
+# Log-posterior: log p(mu | y) ∝ log p(y | mu) + log p(mu)
+log_post <- function(mu, y, mu0, tau0_sq, sigma_sq) {
+  log_lik <- sum(dnorm(y, mean = mu, sd = sqrt(sigma_sq), log = TRUE))
+  log_prior <- dnorm(mu, mean = mu0, sd = sqrt(tau0_sq), log = TRUE)
+  log_lik + log_prior
+}
+```
+:::
+
+## [MCMC - Metropolis-Hastings Algorithm(HW problem 1, cont'd)]{.r-fit-text}
+
+::: {style="font-size: 60%;"}
+
+-   A proposal function for $\mu$ centered at the previously sampled value.
+
+-  My proposal $\mu^* \sim q\left(\mu^* \mid \mu^{(0)}\right)=N\left(\mu^{(0)}, \sigma_p^2\right)$, where we can set $\mu^{(0)} = \bar{y}$
+
+```{r, echo=TRUE}
+mean(y)
+```
+
+
+-  $\mu^*=\mu^{(t-1)}+\varepsilon, \quad \varepsilon \sim N\left(0, \sigma_p^2\right)$ Hence, $q\left(\mu^* \mid \mu^{(t-1)}\right)=N\left(\mu^{(t-1)}, \sigma_p^2\right)$
+
+```{r, echo=TRUE}
+# Metropolis–Hastings sampler (Random-Walk proposal)
+mh_sampler <- function(sigma_p, n_iter = 5000, burn_in = 1000) {
+  mu <- numeric(n_iter)
+  mu[1] <- mean(y)
+  
+  for (t in 2:n_iter) {
+    mu_prop <- rnorm(1, mean = mu[t - 1], sd = sigma_p)
+    log_r <- log_post(mu_prop, y, mu0, tau0_sq, sigma_sq) -
+             log_post(mu[t - 1], y, mu0, tau0_sq, sigma_sq)
+    if (log(runif(1)) < log_r) {
+      mu[t] <- mu_prop
+    } else {
+      mu[t] <- mu[t - 1]
+    }
+  }
+  
+  # Drop burn-in and return MCMC object
+  chain <- mcmc(mu[(burn_in + 1):n_iter])
+  return(chain)
+}
+```
+:::
+
+## [MCMC - Metropolis-Hastings Algorithm(HW problem 1, contd)]{.r-fit-text}
+
+::: {style="font-size: 70%;"}
+
+```{r, echo=TRUE}
+# Run chain with sigma_p = 0.5
+set.seed(425)
+chain_small <- mh_sampler(sigma_p = 0.5)
+
+# Summaries and plots
+summary(chain_small)
+```
+:::
+
+## [MCMC - Metropolis-Hastings Algorithm(HW problem 1, contd)]{.r-fit-text}
+
+::: {style="font-size: 60%;"}
+
+```{r, echo=TRUE}
+traceplot(chain_small, main = "Trace Plot (sigma_p = 0.5)")
+```
+:::
+
+## [MCMC - Metropolis-Hastings Algorithm(HW problem 1, contd)]{.r-fit-text}
+
+::: {style="font-size: 60%;"}
+```{r, echo=TRUE}
+densplot(chain_small, main = "Posterior Density (sigma_p = 0.5)")
+```
+:::
+
+## [MCMC - Metropolis-Hastings Algorithm(HW problem 1, contd)]{.r-fit-text}
+
+::: {style="font-size: 60%;"}
+```{r, echo=TRUE}
+autocorr.plot(chain_small, main = "Autocorrelation (sigma_p = 0.5)")
+```
+:::
+
+## [MCMC - Metropolis-Hastings Algorithm(HW problem 1, contd)]{.r-fit-text}
+
+::: {style="font-size: 70%;"}
+
+ \(b\) Provide a trace plot and a plot of the histogram and/or kernel density estimate for each chain. 
+
+> To answer this, you can run the following code and then compare the plots:
+
+```{r, echo=TRUE}
+set.seed(123)
+chain1 <- mh_sampler(sigma_p = 0.5)
+set.seed(456)
+chain2 <- mh_sampler(sigma_p = 0.5)
+set.seed(789)
+chain3 <- mh_sampler(sigma_p = 0.5)
+```
+
+-  `summary()`,`autocorr.plot()`, `densplot()`
+
+::: {.fragment .highlight-red}
+-  I have demonstrated the case when $\sigma_p=0.5$. Don't forget to try $\sigma_p=2$ !
+:::
+
+:::
+
+
+
+## [MCMC - Metropolis-Hastings Algorithm(HW problem 1, cont'd)]{.r-fit-text}
+
+::: {style="font-size: 70%;"}
+
+\(c\) After removing an appropriate burn-in, evaluate the acceptance rate and the autocorrelation for varying lags. Which value of $\sigma_p$ provides a better choice for the proposal function?
+
+```{r, echo = TRUE}
+# Acceptance rate function
+acceptance_rate <- function(chain) {
+  draws <- as.numeric(chain)
+  mean(diff(draws) != 0)
+}
+acceptance_rate(chain_small)
+```
+
+
+[(This is just an arbitrary number I came up with — you should check your own chain.)]{style="color:red;"}
+
+The pattern is likely to be: 
+
+-   $\sigma_p=0.5$ accepts $\sim 82 \%$ proposals $\rightarrow$ too conservative.
+-   $\sigma_p=2$ accepts $\sim 27 \%$ proposals $\rightarrow$ better exploration.
+
+:::
+
+## [MCMC - Gibbs sampler & MH(package(coda))]{.r-fit-text}
+
+::: {style="font-size: 65%;"}
+
+-  You can technically wrap any numeric vector or matrix(`object` here) in `mcmc_obj <- mcmc(object)` , even if it isn't a "real" MCMC sequence. However - and this is key - doing so doesn't make it an MCMC chain in a statistical sense. It just labels it as one so that functions like `plot()`, `acf()`, and `effectiveSize()` can run without error.
+
+| Function | Purpose |
+|:----------------------|:------------------------------------------------------------|
+| `effectiveSize(mcmc_obj)` | Computes **Effective Sample Size (ESS)** — measures chain independence. |
+| `gelman.diag(mcmc.list_obj)` | **Gelman–Rubin diagnostic** for checking convergence across multiple chains. |
+| `geweke.diag(mcmc_obj)` | **Geweke diagnostic** for within-chain convergence (compares early vs. late samples). |
+| `heidel.diag(mcmc_obj)` | **Heidelberger–Welch test** for stationarity and convergence. |
+| `raftery.diag(mcmc_obj)` | **Raftery–Lewis diagnostic** estimating chain length needed for precision. |
+
+:::
+
+
+<!--
+
+# JAGS - Just Another Gibbs Sampler
+
+## [The Posterior That Looks Easy but Isn’t — JAGS Is Your Best Friend!]{.r-fit-text}
+
+::: {style="font-size: 60%;"}
+Model:
+
+$$
+y_i \sim \text{Cauchy}(\theta, \sigma), \quad
+\theta \sim \mathcal{N}(0, 10^2), \quad
+\sigma \sim \text{Uniform}(0, 10)
+$$
+
+Posterior:
+
+$$
+p(\theta, \sigma \mid y)
+\propto
+\left[ \prod_{i=1}^n
+\frac{1}{\pi \sigma \left(1 + \frac{(y_i - \theta)^2}{\sigma^2}\right)} \right]
+\exp\!\left(-\frac{\theta^2}{2 \times 10^2}\right)
+$$
+
+It only has **two parameters**, yet the posterior is:
+
+-   ❌ No full conditional — not a known distribution\
+-   ❌ Non-conjugate — prior and likelihood don’t simplify\
+-   ❌ No closed-form normalization — integral can’t be solved
+
+Result: $p(\theta,\sigma|y)$ has **no analytic form**, no direct
+sampler, and no closed expression.
+
+> 🤢 Manual derivation stops here.
+:::
+
+## What Are BUGS and JAGS?
+
+::: {style="font-size: 60%;"}
+-   **BUGS (Bayesian inference Using Gibbs Sampling):**\
+    Early Bayesian software (1990s, Cambridge) using Gibbs sampling.
+    Versions include *Classic BUGS(1990s)*, *WinBUGS(Windows-only)*, and
+    *OpenBUGS(open-source successor)*.
+
+-   **JAGS (Just Another Gibbs Sampler):**\
+    Developed by Martyn Plummer in 2003 as a **cross-platform**,
+    **open-source**, and **R-integrated** version of BUGS.
+
+> 💡 JAGS keeps the same model syntax as BUGS but adds flexibility,
+> automatic Metropolis–within–Gibbs sampling, and modern extensibility.
+
+![](martin_plummer.jpg){.absolute top="420" left="30" width="300"
+height="250"}
+
+![](bugs.jpg){.absolute top="350" left="570" width="420" height="350"}
+:::
+
+## Why JAGS
+
+::::: {style="font-size: 70%;"}
+::: {.fragment .fade-in}
+1.  **Doing MCMC by hand means:**
+    -   Writing out **priors** and **likelihood**
+    -   Deriving **full conditional posteriors** for Gibbs sampling\
+    -   Specifying a **proposal distribution** for Metropolis–Hastings\
+    -   Tracking the **update order** for every parameter
+2.  As models grow complex, this becomes
+    -   🔁 *tedious*,\
+    -   🧮 *algebraically messy*, and\
+    -   🚫 *often intractable.*
+3.  You want to spend time **analyzing**, not deriving.
+:::
+
+::: {.fragment .fade-in}
+> JAGS can help you solve this once you specify the prior and the
+> likelihood!
+:::
+:::::
+
+## Enter JAGS
+
+-   **JAGS** automates MCMC sampling.\
+-   You define your model using **BUGS-like syntax**.\
+-   It automatically:
+    -   Constructs the **posterior**\
+    -   Performs **Gibbs / Metropolis-Hastings sampling**\
+    -   Returns results to **R** through `rjags` or `R2jags`.
+
+## How JAGS Samples Behind the Scenes
+
+:::: {style="font-size: 60%;"}
+Even within Gibbs sampling, not all parameters have closed-form
+conditionals.
+
+JAGS handles this **automatically**:
+
+| Parameter Type | Sampling Strategy | Description |
+|------------------------|---------------------------|---------------------|
+| Conjugate blocks | **Pure Gibbs** | Exact draws from known conditionals |
+| Non-conjugate blocks | **Metropolis–within–Gibbs** | Uses adaptive random-walk MH inside Gibbs |
+| Difficult continuous nodes | **Slice sampling** | Efficient for highly nonlinear posteriors |
+
+So Gibbs and Metropolis **run in parallel**:
+
+-   Each iteration updates some parameters by **Gibbs**, others by
+    **Metropolis**\
+-   JAGS adapts proposal scales automatically during burn-in\
+-   You don’t need to code or tune anything
+
+::: {.fragment .fade-in}
+> 💡 *You define the model; JAGS decides the best sampler for each
+> part.*
+:::
+::::
+
+## How to install JAGS(Mac)
+
+::: {style="font-size: 74%;"}
+-   Option 1: [Download JAGS
+    manually](https://sourceforge.net/projects/mcmc-jags/)
+
+-   Option 2: Homebrew (Mac)
+
+``` terminal
+brew install jags #run this command in terminal
+brew list --versions jags #check version
+brew uninstall jags #uninstall jags
+brew upgrade #upgrade
+```
+
+-   If you download manually, how to remove?
+
+``` terminal
+#run this command in terminal
+which jags 
+
+#if you get this, then JAGS was installed manually
+/usr/local/bin/jags 
+
+# To remove it, do
+sudo rm -rf /usr/local/bin/jags
+sudo rm -rf /usr/local/lib/JAGS
+sudo rm -rf /usr/local/share/jags
+sudo rm -rf /usr/local/include/jags
+
+# Verify JAGS is removed
+which jags
+```
+:::
+
+## How to install JAGS(Windows)
+
+::: {style="font-size: 74%;"}
+1.  [Download JAGS
+    manually](https://sourceforge.net/projects/mcmc-jags/)
+2.  Using Command Prompt (CMD)
+
+``` cmd
+# Step 1 — Check if JAGS is installed
+jags
+
+# If JAGS is installed, you will see: Welcome to JAGS 4.3.2 (official binary)
+
+# Type "exit" to close JAGS
+exit
+
+# Step 2 — Check the installation path (optional)
+where jags
+
+# Step 3 — To uninstall JAGS
+# Go to Control Panel → Programs → Programs and Features
+# Find "JAGS 4.x.x" → Click Uninstall
+
+# Or delete manually (if Control Panel fails)
+rmdir /S /Q "C:\Program Files\JAGS"
+
+# Step 4 — Verify removal. It should show: 'jags' is not recognized as an internal or external command
+jags
+```
+:::
+
+## Loading JAGS(library(rjags)) in R
+
+::: {style="font-size: 85%;"}
+```{r}
+#| echo: true
+# install.packages(c("rjags", "coda"))
+
+# Ensure dependencies are installed
+# (coda must be loaded before rjags, since rjags depends on it)
+install.packages(
+  "rjags",
+  type = "source",
+  repos = "https://cloud.r-project.org",
+  configure.args = "--with-jags-prefix=/opt/homebrew/opt/jags"
+)
+
+# Load required packages
+library(coda)   # For MCMC diagnostics and output handling
+library(rjags)  # Interface to the JAGS (Just Another Gibbs Sampler) engine
+```
+:::
+
+## BUGS syntax - Example 1
+
+::: {style="font-size: 55%;"}
+$y_i \sim N\left(\mu, \sigma^2\right),\quad \mu \sim N(0,100), \quad \sigma \sim \operatorname{Uniform}(0,10)$
+
+``` {.BUGS code-line-numbers="1-4,5,9,13,15,16|5-6|9-11|13-14|1-16"}
+# BUGS syntax (general form)
+  "
+  model {
+    for (i in 1:N) {
+      # Likelihood
+      y[i] ~ distribution(parameter1, parameter2)   # stochastic: likelihood for data
+    }
+    
+    # Priors for parameters
+    parameter1 ~ prior_distribution1(hyperparameter_set1)   # prior for parameter1
+    parameter2_raw ~ prior_distribution2(hyperparameter_set2)  # prior for parameter2 (before transformation)
+    
+    # Deterministic relationship (if needed)
+    parameter2 <- g(parameter2_raw)    # e.g., transformation such as 1 / variance
+  }
+  "
+```
+
+Then, append the `model{}` block into the R code
+
+``` {.r code-line-numbers="1,2,15,16|1-16"}
+# Model specification
+model_code <- 
+  "
+  model {
+    for (i in 1:N) {
+      y[i] ~ dnorm(mu, tau)  # likelihood for data
+    }
+    # Priors for parameters
+    mu ~ dnorm(0, 0.01)      # Prior: mu ~ N(0, 100), in JAGS, always use precision = 1/100 = 0.01
+    sigma ~ dunif(0, 10)     # Prior: sigma ~ Uniform(0, 10)
+    tau <- pow(sigma, -2)    # Precision tau = 1 / sigma^2
+  }
+"
+
+# Write model to file
+writeLines(model_code, "model.txt")
+```
+:::
+
+## BUGS syntax - Example 2
+
+::: {style="font-size: 50%;"}
+$y_i=\beta_0+\beta_1 x_i+\varepsilon_i, \quad \varepsilon_i \sim N\left(0, \sigma^2\right), \quad \beta_0 \sim N(0,1000), \beta_1 \sim N(0,1000), \sigma^2 \sim \operatorname{Inv-Gamma}(0.001,0.001)$
+
+``` {.BUGS code-line-numbers="1-5,10,14,17,18|5-7|10-12|14-16|1-18"}
+# BUGS syntax (general linear regression form)
+  "
+  model {
+    for (i in 1:N) {
+      # Likelihood
+      y[i] ~ dnorm(mu[i], tau)             # stochastic: likelihood for data
+      mu[i] <- beta0 + beta1 * x[i]        # deterministic: mean structure
+    }
+
+    # Priors for regression coefficients
+    beta0 ~ dnorm(0, 0.001)                # Prior: β₀ ~ N(0, 1000)
+    beta1 ~ dnorm(0, 0.001)                # Prior: β₁ ~ N(0, 1000)
+
+    # Prior for error variance
+    tau <- 1 / pow(sigma, 2)               # Precision = 1 / σ²
+    sigma ~ dunif(0, 100)                  # Equivalent to Inv-Gamma(0.001, 0.001)
+  }
+  "
+```
+
+Then, append the `model{}` block into the R code
+
+``` {.r code-line-numbers="1-2,16,17|1-17"}
+# Model specification
+model_code_2 <- 
+  "
+  model {
+    for (i in 1:N) {
+      y[i] ~ dnorm(mu[i], tau)             # likelihood for data
+      mu[i] <- beta0 + beta1 * x[i]        # mean structure
+    }
+    beta0 ~ dnorm(0, 0.001)                # prior for intercept
+    beta1 ~ dnorm(0, 0.001)                # prior for slope
+    sigma ~ dunif(0, 100)                  # prior for standard deviation
+    tau <- pow(sigma, -2)                  # precision = 1 / sigma^2
+  }
+  "
+
+# Write model to file
+writeLines(model_code_2, "model_2.txt")
+```
+:::
+
+# [🚀 Hands-On with rjags: Let’s Build a Bayesian Model]{.r-fit-text}
+
+## Example 1 (Cont'd)
+
+::: {style="font-size: 60%;"}
+Suppose we would like to run a model to draw inference about the mean
+for the following model:
+
+$$
+y_i \sim N\left(\mu, \sigma^2\right)
+$$
+
+where $y_i$ are the data include 30 observations.
+
+Priors are:
+
+$$
+\begin{gathered}
+\mu \sim N(0,100) \\
+\sigma \sim \operatorname{Uniform}(0,10)
+\end{gathered}
+$$
+
+```{r, echo=TRUE}
+# Ground Truth
+rm(list=ls())
+n = 30
+mu = 1.12
+sigma = 0.38
+
+# Generate values (stochastic part of the model)
+# In reality, you only observe 30 data points, and the true population mean 
+# and variance are unknown. Our goal is to estimate these parameters.
+set.seed(425)
+y = rnorm(n, mean = mu, sd = sigma)
+```
+:::
+
+## Example 1 (Cont'd)
+
+::: {style="font-size: 60%;"}
+```{r, echo=TRUE}
+df = data.frame(y)
+library(ggplot2)
+ggplot(df, aes(x = y)) +
+  geom_histogram(bins = 30) +
+  labs(title = "Histogram of Simulated y", x = "y", y = "Count") +
+  theme_minimal()
+```
+:::
+
+## Example 1 (Cont'd)
+
+::: {style="font-size: 60%;"}
+If we put `n = 10000`, it is indeed the bell shape!
+
+```{r}
+y_demo <- rnorm(10000, 1.12, 0.38)
+df_demo <- data.frame(y_demo)
+ggplot(df_demo, aes(x = y_demo)) +
+  geom_histogram(aes(y = ..density..))+
+  stat_function(fun = dnorm,
+                  args = list(mean = 1.12, sd = 0.38),
+                  color = "red", linewidth = 1.2) +
+  labs(title = "Histogram of Simulation with n = 10000", x = "x", y = "Count") +
+  theme_minimal()
+
+```
+:::
+
+## Example 1 (Cont'd)
+
+:::: {style="font-size: 60%;"}
+-   Recall our BUGS syntax: `writeLines(model_code, "model.txt")`
+
+::: {.fragment .highlight-red}
+-   You don't really need to specify `inits`
+:::
+
+```{r,echo=FALSE}
+# Model specification
+model_code <-
+  "
+  model {
+    for (i in 1:N) {
+      y[i] ~ dnorm(mu, tau)  # Likelihood
+    }
+    mu ~ dnorm(0, 0.01)      # Prior: mu ~ N(0, 100), in JAGS, always use precision
+    sigma ~ dunif(0, 10)     # Prior: sigma ~ Uniform(0, 10)
+    tau <- pow(sigma, -2)    # Precision tau = 1 / sigma^2
+  }
+  "
+
+# Write model to file
+writeLines(model_code, "model.txt")
+```
+
+``` {.r code-line-numbers="1-17|7-9,17||1-17"}
+# Prepare data for JAGS
+jagsData <- list(
+  y = y,
+  N = length(y)
+)
+
+# Initial values for the model
+jags_inits <- function() {
+  list(mu = rnorm(1, 0, 10), sigma = runif(1, 0, 10)) # priors
+}
+
+# Parameters to monitor
+jags_params <- c("mu", "sigma","tau")
+
+# Load rjags and run the model
+library(rjags)
+model_1 <- jags.model(file = "model.txt", data = jagsData, inits = jags_inits, n.chains = 3)
+```
+
+```{r}
+# Prepare data for JAGS
+jagsData <- list(
+  y = y,
+  N = length(y)
+)
+
+# Initial values for the model
+jags_inits <- function() {
+  list(mu = rnorm(1, 0, 10), sigma = runif(1, 0, 10)) # priors
+}
+
+# Parameters to monitor
+jags_params <- c("mu", "sigma","tau")
+
+# Load rjags and run the model
+library(rjags)
+model_1 <- jags.model(file = "model.txt", data = jagsData, inits = jags_inits, n.chains = 3)
+```
+::::
+
+## Example 1 (Cont'd)
+
+::: {style="font-size: 70%;"}
+```{r, echo=TRUE}
+# Sample from posterior
+samples <- coda.samples(model_1, variable.names = jags_params, n.iter = 2000, n.burnin = 1000)
+
+# Convert to matrix for easier manipulation
+output <- as.matrix(samples)
+
+# Extract results
+mu_samples <- output[, "mu"]
+sigma_samples <- output[, "sigma"]
+tau_samples <- output[,"tau"]
+
+# Summary statistics
+# posterior prediction
+mean(mu_samples)
+mean(sigma_samples)
+mean(tau_samples)
+```
+
+-   Recall our ground truth: `mu = 1.12`, `sigma = 0.38`. What will you
+    conclude about the result from JAGS.
+:::
+
+## Example 1 (Cont'd) - Trace Plot
+
+```{r, fig.width=8, fig.height=6, echo=TRUE}
+# Plot MCMC chains
+plot(samples)
+```
+
+## [Example 1 (Cont'd) - Autocorrelation Plot & Effective Sample Size]{.r-fit-text}
+
+::: {style="font-size: 70%;"}
+```{r, echo=TRUE}
+autocorr.diag(samples)
+effectiveSize(samples)
+
+# autocorr.plot(samples)
+```
+:::
+
+## Example 1 (Cont'd) - Gelman-Rubin
+
+::: {style="font-size: 70%;"}
+```{r, echo=TRUE}
+#Examine convergence of the Markov chains using the Gelman-Brooks-Rubin diagnostic
+gelman.plot(samples)
+```
+:::
+
+## Example 2 (Cont'd)
+
+::: {style="font-size: 70%;"}
+Simple Linear Regression: We have the data of 48 pigs with body weight
+measured at 9 successive weeks. Suppose we would like to fit the model:
+for $i=1, \cdots, 432$
+
+$$
+y_i=\beta_0+\beta_1 x_i+\epsilon_i \quad \epsilon_i \sim N\left(0, \sigma^2\right)
+$$
+
+Priors are:
+
+$$
+\begin{gathered}
+\beta_0 \sim N(0,1000) \\
+\beta_1 \sim N(0,1000) \\
+\sigma^2 \sim \text { Inv- } \operatorname{Gamma}(0.001,0.001)
+\end{gathered}
+$$
+
+```{r, echo = TRUE}
+rm(list=ls())
+# Ground Truth
+set.seed(425)
+N <- 48
+beta0_true <- 2
+beta1_true <- 0.5
+sigma_true <- 1
+# Generate synthetic data
+x <- rnorm(N, 5, 2)
+y <- rnorm(N, beta0_true + beta1_true * x, sigma_true)
+```
+
+```{r,echo=FALSE}
+# Model specification
+model_code_2 <- 
+  "
+  model {
+    for (i in 1:N) {
+      y[i] ~ dnorm(mu[i], tau2)             # likelihood for data
+      mu[i] <- beta0 + beta1 * x[i]        # mean structure
+    }
+    beta0 ~ dnorm(0, 0.001)                # prior for intercept
+    beta1 ~ dnorm(0, 0.001)                # prior for slope
+    sigma2 ~ dunif(0, 100)                  # prior for standard deviation
+    tau2 <- pow(sigma2, -2)                  # precision = 1 / sigma^2
+  }
+  "
+
+# Write model to file
+writeLines(model_code_2, "model_2.txt")
+```
+:::
+
+## Example 2 (Cont'd)
+
+::: {style="font-size: 70%;"}
+Recall our BUGS syntax: `writeLines(model_code_2, "model_2.txt")`
+
+```{r, echo=TRUE}
+# Prepare data for JAGS
+jags_data <- list(
+  N = N,
+  x = x,
+  y = y
+)
+
+# Initial values for chains
+inits <- function() {
+  list(beta0 = rnorm(1, 0, 1),
+       beta1 = rnorm(1, 0, 1),
+       sigma2 = runif(1, 0, 5))
+}
+
+# Parameters to monitor
+params <- c("beta0", "beta1", "sigma2", "tau2")
+
+# Load rjags and run the model
+library(rjags)
+model_2 <- jags.model("model_2.txt",
+                    data = jags_data,
+                    inits = inits,
+                    n.chains = 3)
+```
+:::
+
+## Example 2 (Cont'd)
+
+::: {style="font-size: 70%;"}
+```{r, echo=TRUE}
+samples_2 <- coda.samples(model_2, variable.names = params, n.iter = 3000, n.burnin = 1000)
+
+# Convert to matrix for easier manipulation
+output_2 <- as.matrix(samples_2)
+
+# Extract results
+beta0_samples <- output_2[, "beta0"]
+beta1_samples <- output_2[, "beta1"]
+sigma_samples_2 <- output_2[,"sigma2"]
+tau_samples_2 <- output_2[,"tau2"]
+
+# Summary statistics
+# posterior prediction
+mean(beta0_samples)
+mean(beta1_samples)
+mean(sigma_samples_2)
+mean(tau_samples_2)
+```
+
+-   Recall our ground truth: `beta0_true = 2`, `beta1_true = 0.5`,
+    `sigma_true=1`. What will you conclude about the result from JAGS.
+:::
+
+## Example 2 (Cont'd) - Trace Plot
+
+```{r, fig.width=8, fig.height=6, echo=TRUE}
+# Plot MCMC chains
+plot(samples_2)
+```
+
+## [Example 2 (Cont'd) - Autocorrelation Plot & Effective Sample Size]{.r-fit-text}
+
+::: {style="font-size: 80%;"}
+```{r, echo=TRUE}
+autocorr.diag(samples_2)
+effectiveSize(samples_2)
+
+# autocorr.plot(samples)
+```
+:::
+
+## Example 2 (Cont'd) - Gelman-Rubin
+
+::: {style="font-size: 70%;"}
+```{r, echo=TRUE}
+#Examine convergence of the Markov chains using the Gelman-Brooks-Rubin diagnostic
+gelman.plot(samples_2)
+```
+:::
+
+## Finally
+
+![](600px-BayesEvol-1.jpg){width="800" height="600"}
+
+## Resources {.smaller}
+
+-   [JAGS (official site)](https://mcmc-jags.sourceforge.io/)\
+-   [*JAGS: A program for analysis of Bayesian graphical models using
+    Gibbs sampling* by Martyn Plummer — University of
+    Warwick](https://www.r-project.org/conferences/DSC-2003/Drafts/Plummer.pdf)
+-   [Rebecca Steorts, *Introduction to Just Another Gibbs Sampler
+    (JAGS)* — Duke
+    University](https://www2.stat.duke.edu/~rcs46/jags_present.pdf)\
+-   [*An Introduction to Bayesian Reasoning and Methods* by Kevin
+    Davis](https://peterhoff.io/book/)\
+-   [*A First Course in Bayesian Statistical Methods* by Dr. Peter
+    Hoff](https://peterhoff.io/book/)\
+-   [Ritvik Kharkar](https://www.linkedin.com/in/ritvik-kharkar/) 
+-   Original slide materials were prepared by [Dr. Scott
+    Liang](https://www.linkedin.com/in/mliang4/) and [Enyu
+    Li](https://www.linkedin.com/in/enyu-li-aa52a119a/).\
+-   Updated and expanded under the supervision of [Dr. Marina
+    Vannucci](https://marina.blogs.rice.edu/).
+
+## [Example 3: Random-Intercept Model in Action (Optional practice)]{.r-fit-text}
+
+:::: {style="font-size: 55%;"}
+Same pig dataset, assume intercept is different for each pig Data
+likelihood: for $i=1, \cdots, 48, j=1, \cdots, 9$
+
+$y_{i j}=\beta_0+\theta_i+\beta_1 x_{i j}+\varepsilon_{i j}, \quad \theta_i \sim N\left(0, \tau^2\right), \quad \varepsilon_{i j} \sim N\left(0, \sigma^2\right)$
+
+$\beta_0 \sim N(0,1000), \quad \beta_1 \sim N(0,1000)$
+
+$\tau^2 \sim \operatorname{Inv-Gamma}(0.001,0.001), \quad \sigma^2 \sim \operatorname{Inv-Gamma}(0.001,0.001)$
+
+``` bugs
+# Model specification
+model_code <- 
+  "
+  model {
+    for (i in 1:N_pig) {
+      for (j in 1:N_obs) {
+        y[i, j] ~ dnorm(mu[i, j], tau_eps)
+        mu[i, j] <- beta0 + theta[i] + beta1 * x[i, j]
+      }
+      theta[i] ~ dnorm(0, tau_theta)
+    }
+    beta0 ~ dnorm(0, 0.001)
+    beta1 ~ dnorm(0, 0.001)
+    sigma ~ dunif(0, 100)
+    tau_eps <- pow(sigma, -2)
+    sigma_theta ~ dunif(0, 100)
+    tau_theta <- pow(sigma_theta, -2)
+  }
+  "
+
+# Write model to file
+writeLines(model_code, "model.txt")
+```
+
+::: callout-note
+Feel free to email me at `jk201@rice.edu` if you want to check your
+answer or go over the solution together.
+:::
+::::
+
+-->
+
+# Thank you! {.smaller}
+
+::: r-stack
+Have a great rest of your day!
+:::

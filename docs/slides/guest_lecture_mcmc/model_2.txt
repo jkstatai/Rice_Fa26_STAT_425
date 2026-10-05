@@ -1,0 +1,12 @@
+
+  model {
+    for (i in 1:N) {
+      y[i] ~ dnorm(mu[i], tau2)             # likelihood for data
+      mu[i] <- beta0 + beta1 * x[i]        # mean structure
+    }
+    beta0 ~ dnorm(0, 0.001)                # prior for intercept
+    beta1 ~ dnorm(0, 0.001)                # prior for slope
+    sigma2 ~ dunif(0, 100)                  # prior for standard deviation
+    tau2 <- pow(sigma2, -2)                  # precision = 1 / sigma^2
+  }
+  
