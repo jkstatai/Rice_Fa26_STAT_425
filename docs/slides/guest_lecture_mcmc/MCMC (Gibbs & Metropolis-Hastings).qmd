@@ -56,7 +56,384 @@ editor:
 
 # Markov Chain Monte Carlo(MCMC)
 
-## [MCMC - Gibbs sampler]{.r-fit-text}
+## [MCMC - Gibbs sampler: the problem]{.r-fit-text}
+
+::: {style="font-size: 65%;"}
+
+
+So far, we have covered conjugate and semi-conjugate posteriors — these gave us nice closed forms. But what if the joint posterior looks something like this?
+
+. . .
+
+
+$$p(\boldsymbol{\theta} \mid \mathbf{x}) \propto \left(\prod_{i=1}^n \frac{1}{\sqrt{2\pi}\sigma} e^{-\frac{(x_i - \mu)^2}{2\sigma^2}}\right) \cdot \frac{1}{\sigma^{2(\alpha+1)}} e^{-\beta/\sigma^2} \cdot \frac{1}{\sqrt{2\pi}\tau} e^{-\frac{(\mu-m)^2}{2\tau^2}} \cdot \frac{\lambda^{a-1} e^{-b\lambda}}{1 + e^{-\gamma(\mu - \lambda\bar{x})}}$$
+
+. . .
+
+**Direct sampling is hard** — the joint posterior can live in high dimensions with no tractable form.
+
+. . .
+
+**Key insight:** even though the joint $p(\boldsymbol{\theta} \mid \mathbf{x})$ is hard to sample from directly, if we can derive each parameter's *full conditional* distribution — conditioning on all other parameters — those are often much simpler:
+
+$$p(\theta_j \mid \theta_1, \ldots, \theta_{j-1}, \theta_{j+1}, \ldots, \theta_p, \mathbf{x}) \quad \text{for each } j = 1, \ldots, p$$
+
+. . .
+
+These full conditionals are just slices of the joint — and slices of a nasty joint are often recognizable distributions we know how to sample from.
+
+. . .
+
+[So instead of tackling the full joint at once, we sample one parameter at a time —  treating all others as fixed constants. Each step is a simple **univariate** draw.]{style="color: red;"}
+:::
+
+
+## [MCMC - Gibbs sampler: the idea]{.r-fit-text}
+
+::: {style="font-size: 70%;"}
+
+Start with some initial guess $(\theta_1^{(1)}, \theta_2^{(1)})$. Then for $t = 2, 3, \ldots$:
+
+. . .
+
+**Step 1.** Sample $\theta_1^{(t)}$ from $p(\theta_1 \mid \theta_2^{(t-1)}, \mathbf{x})$
+— treat $\theta_2$ as **fixed**, sample $\theta_1$
+
+. . .
+
+**Step 2.** Sample $\theta_2^{(t)}$ from $p(\theta_2 \mid \theta_1^{(t)}, \mathbf{x})$
+— treat the **new** $\theta_1$ as fixed, sample $\theta_2$
+
+. . .
+
+Each draw is a **1D problem** — much easier than the full 2D joint.
+
+:::
+
+## [Gibbs sampler: a familiar example]{.r-fit-text}
+
+::: {style="font-size: 68%;"}
+
+[Let's refer to the bivariate normal example from Dr. Li's Lecture 6 slides.]{style="color: red;"}
+
+. . . 
+
+To build intuition, consider a target we actually know:
+
+$$\begin{pmatrix}\theta_1\\\theta_2\end{pmatrix} \sim N_2\left(\begin{pmatrix}0\\0\end{pmatrix},\ \begin{pmatrix}1 & \rho\\ \rho & 1\end{pmatrix}\right)$$
+
+. . .
+
+Even though we could sample this directly, suppose we only use the full conditionals:
+
+$$\theta_1 \mid \theta_2 \sim N(\rho\theta_2,\ 1-\rho^2), \qquad \theta_2 \mid \theta_1 \sim N(\rho\theta_1,\ 1-\rho^2)$$
+
+. . .
+
+**Why this example?** This is not a posterior — it is a 
+plain bivariate normal whose exact shape we already know. 
+Running Gibbs here lets us verify the algorithm works, 
+before applying it to our actual posterior where 
+no exact answer exists.
+:::
+
+
+
+## [MCMC - Gibbs sampler: why it works]{.r-fit-text}
+
+::: {style="font-size: 68%;"}
+
+The sequence
+$$(\theta_1^{(1)}, \theta_2^{(1)}),\ (\theta_1^{(2)}, \theta_2^{(2)}),\ \ldots$$
+forms a **Markov chain** — each draw depends only on the previous one.
+
+. . .
+
+Under mild conditions, this chain **converges** to the joint posterior as its stationary distribution:
+
+$$(\theta_1^{(t)}, \theta_2^{(t)}) \xrightarrow{t \to \infty} p(\theta_1, \theta_2 \mid \mathbf{x})$$
+
+. . .
+
+This means after enough iterations, our draws are (approximately) samples from the posterior we actually want — even though we never sampled from it directly.
+
+. . .
+
+> **Burn-in:** the early part of the chain (before convergence) is discarded.
+
+:::
+
+## [Gibbs Sampler — Interactive Animation]{.r-fit-text}
+
+::: {style="font-size: 60%;"}
+
+```{=html}
+<div id="gibbs-root">
+<div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:6px;font-size:12px;">
+  <button id="gb-step">Step</button>
+  <button id="gb-play">▶ Play</button>
+  <button id="gb-reset">Reset</button>
+  <label>Speed
+    <input type="range" id="gb-spd" min="100" max="2000" value="800" step="100">
+    <span id="gb-spdv">800ms</span>
+  </label>
+  <label>ρ
+    <input type="range" id="gb-rho" min="-0.95" max="0.95" value="0.95" step="0.05">
+    <span id="gb-rhov">0.95</span>
+  </label>
+  <label>σ²
+    <input type="range" id="gb-var" min="0.2" max="3" value="1" step="0.1">
+    <span id="gb-varv">1.0</span>
+  </label>
+  <span id="gb-lbl" style="opacity:0.6;">Step: 0 / 100</span>
+</div>
+
+<div id="gb-ann" style="min-height:28px;font-size:12px;padding:4px 8px;margin-bottom:4px;
+  border-left:3px solid #2a72c8;background:rgba(42,114,200,0.07);border-radius:3px;
+  color:#1a1a1a;line-height:1.4;"></div>
+
+<canvas id="gb-cv" width="900" height="420"
+  style="width:100%;border:1px solid #ccc;border-radius:6px;"></canvas>
+</div>
+
+<script>
+setTimeout(function(){
+  var root = document.getElementById('gibbs-root');
+  if(!root) return;
+  var cv   = root.querySelector('#gb-cv');
+  var ctx  = cv.getContext('2d');
+  var ann  = root.querySelector('#gb-ann');
+  var W=900,H=420,pad=55,plotW=W-pad*2,plotH=H-pad*2;
+  var xl=[-8,8],yl=[-8,8];
+  var N=100;
+  var chain=[],cur=0,playing=false,timer=null;
+
+  function getParams(){
+    return {
+      rho:  parseFloat(root.querySelector('#gb-rho').value),
+      sig2: parseFloat(root.querySelector('#gb-var').value)
+    };
+  }
+
+  function randn(){
+    var u,v;
+    do{u=Math.random();}while(!u);
+    do{v=Math.random();}while(!v);
+    return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+  }
+
+  function buildChain(rho,sig2){
+    var sig=Math.sqrt(sig2);
+    var c=[[6*sig,-6*sig]];
+    for(var i=1;i<=N;i++){
+      var p=c[c.length-1];
+      var z1=rho*p[1]+Math.sqrt(sig2*(1-rho*rho))*randn();
+      c.push([z1,p[1]]);
+      var z2=rho*z1+Math.sqrt(sig2*(1-rho*rho))*randn();
+      c.push([z1,z2]);
+    }
+    return c;
+  }
+
+  function px(x,y){
+    return [
+      pad+(x-xl[0])/(xl[1]-xl[0])*plotW,
+      pad+(1-(y-yl[0])/(yl[1]-yl[0]))*plotH
+    ];
+  }
+
+  function bgauss(x,y,rho,sig2){
+    var z=(x*x-2*rho*x*y+y*y)/(sig2*(1-rho*rho));
+    return Math.exp(-z/2);
+  }
+
+  function drawContours(rho,sig2){
+    var levels=[0.05,0.15,0.35,0.55,0.75,0.90];
+    var cols=['#e8e6fb','#ccc9f5','#b3afee','#9a95e7','#837de2','#6a63db'];
+    var gN=80;
+    var xs=Array.from({length:gN},function(_,i){return xl[0]+(xl[1]-xl[0])*i/(gN-1);});
+    var ys=Array.from({length:gN},function(_,j){return yl[0]+(yl[1]-yl[0])*j/(gN-1);});
+    var vals=xs.map(function(x){return ys.map(function(y){return bgauss(x,y,rho,sig2);});});
+    var dx=plotW/(gN-1),dy=plotH/(gN-1);
+    for(var li=levels.length-1;li>=0;li--){
+      var lv=levels[li];
+      ctx.beginPath();
+      for(var i=0;i<gN-1;i++){
+        for(var j=0;j<gN-1;j++){
+          var v=[vals[i][j],vals[i+1][j],vals[i+1][j+1],vals[i][j+1]];
+          var cnt=v.filter(function(vv){return vv>=lv;}).length;
+          if(cnt>0&&cnt<4){
+            var pt=px(xs[i]+(xs[1]-xs[0])/2,ys[j]+(ys[1]-ys[0])/2);
+            ctx.rect(pt[0]-dx/2,pt[1]-dy/2,dx,dy);
+          }
+        }
+      }
+      ctx.fillStyle=cols[li]; ctx.fill();
+    }
+  }
+
+  function drawAxes(){
+    ctx.strokeStyle='rgba(0,0,0,0.1)'; ctx.lineWidth=0.5;
+    ctx.fillStyle='rgba(0,0,0,0.4)';   ctx.font='11px sans-serif';
+    for(var v=-6;v<=6;v+=2){
+      var pt1=px(v,0),pt2=px(0,v);
+      ctx.beginPath();ctx.moveTo(pt1[0],pad);ctx.lineTo(pt1[0],H-pad);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(pad,pt2[1]);ctx.lineTo(W-pad,pt2[1]);ctx.stroke();
+      ctx.textAlign='center'; ctx.fillText(v,pt1[0],H-pad+14);
+      ctx.textAlign='right';  ctx.fillText(v,pad-6,pt2[1]+4);
+    }
+    ctx.fillStyle='rgba(0,0,0,0.65)'; ctx.font='13px sans-serif';
+    ctx.textAlign='center'; ctx.fillText('\u03b8\u2081',W/2,H-8);
+    ctx.save();ctx.translate(14,H/2);ctx.rotate(-Math.PI/2);
+    ctx.fillText('\u03b8\u2082',0,0);ctx.restore();
+  }
+
+  function drawGuide(upTo){
+    if(upTo<=0||upTo>=chain.length) return;
+    var isHoriz=(upTo%2===1);
+    ctx.save();
+    ctx.setLineDash([5,4]);
+    ctx.lineWidth=0.8;
+    ctx.strokeStyle='rgba(80,80,80,0.35)';
+    ctx.beginPath();
+    if(isHoriz){
+      var ptL=px(xl[0],chain[upTo][1]);
+      var ptR=px(xl[1],chain[upTo][1]);
+      ctx.moveTo(ptL[0],ptL[1]); ctx.lineTo(ptR[0],ptR[1]);
+    } else {
+      var ptT=px(chain[upTo][0],yl[1]);
+      var ptB=px(chain[upTo][0],yl[0]);
+      ctx.moveTo(ptT[0],ptT[1]); ctx.lineTo(ptB[0],ptB[1]);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function annotate(upTo,rho,sig2){
+    if(upTo===0){
+      ann.style.borderColor='#1aab6d';
+      ann.style.background='rgba(26,171,109,0.07)';
+      ann.innerHTML='<b>Start:</b> chain begins far from the distribution. Watch it walk in.';
+      return;
+    }
+    var isHoriz=(upTo%2===1);
+    var step=Math.floor(upTo/2)+1;
+    var curr=chain[upTo];
+    var p=getParams();
+    if(isHoriz){
+      ann.style.borderColor='#2a72c8';
+      ann.style.background='rgba(42,114,200,0.07)';
+      ann.innerHTML='<b>Half-step '+step+'a &mdash; sample \u03b8\u2081 | \u03b8\u2082 = '+curr[1].toFixed(2)+':</b>'
+        +' \u03b8\u2082 is <i>fixed</i> (dashed line). Draw \u03b8\u2081 from '
+        +'N(\u03c1&middot;'+curr[1].toFixed(2)+', \u03c3\u00b2(1&minus;\u03c1\u00b2))'
+        +' = N('+(p.rho*curr[1]).toFixed(2)+', '+(p.sig2*(1-p.rho*p.rho)).toFixed(2)+')'
+        +' &rarr; \u03b8\u2081 = '+curr[0].toFixed(2)+'. Move <b>horizontally</b>.';
+    } else {
+      ann.style.borderColor='#e8793a';
+      ann.style.background='rgba(232,121,58,0.07)';
+      ann.innerHTML='<b>Half-step '+step+'b &mdash; sample \u03b8\u2082 | \u03b8\u2081 = '+curr[0].toFixed(2)+':</b>'
+        +' \u03b8\u2081 is <i>fixed</i> (dashed line). Draw \u03b8\u2082 from '
+        +'N(\u03c1&middot;'+curr[0].toFixed(2)+', \u03c3\u00b2(1&minus;\u03c1\u00b2))'
+        +' = N('+(p.rho*curr[0]).toFixed(2)+', '+(p.sig2*(1-p.rho*p.rho)).toFixed(2)+')'
+        +' &rarr; \u03b8\u2082 = '+curr[1].toFixed(2)+'. Move <b>vertically</b>.';
+    }
+  }
+
+  function draw(upTo,rho,sig2){
+    ctx.clearRect(0,0,W,H);
+    drawContours(rho,sig2);
+    drawAxes();
+    for(var i=1;i<=upTo&&i<chain.length;i++){
+      var age=upTo-i;
+      var alpha=Math.max(0.15,1-age*0.04);
+      var p1=px(chain[i-1][0],chain[i-1][1]);
+      var p2=px(chain[i][0],chain[i][1]);
+      ctx.beginPath(); ctx.moveTo(p1[0],p1[1]); ctx.lineTo(p2[0],p2[1]);
+      ctx.lineWidth=i===upTo?2.5:1.5;
+      var baseCol=i%2===1?'42,114,200':'232,121,58';
+      ctx.strokeStyle='rgba('+baseCol+','+alpha+')';
+      ctx.stroke();
+    }
+    drawGuide(upTo);
+    var s=px(chain[0][0],chain[0][1]);
+    ctx.beginPath();ctx.arc(s[0],s[1],7,0,2*Math.PI);
+    ctx.fillStyle='#1aab6d';ctx.fill();
+    if(upTo>0&&upTo<chain.length){
+      var cp=px(chain[upTo][0],chain[upTo][1]);
+      ctx.beginPath();ctx.arc(cp[0],cp[1],6,0,2*Math.PI);
+      ctx.fillStyle='#8f7fd4';ctx.fill();
+      ctx.strokeStyle='#333';ctx.lineWidth=1.2;ctx.stroke();
+    }
+    ctx.font='12px sans-serif'; ctx.textAlign='left';
+    ctx.fillStyle='#1aab6d'; ctx.fillText('\u25cf start',                        pad+8,pad+18);
+    ctx.fillStyle='#2a72c8'; ctx.fillText('\u2014 sample \u03b8\u2081|\u03b8\u2082', pad+8,pad+34);
+    ctx.fillStyle='#e8793a'; ctx.fillText('\u2014 sample \u03b8\u2082|\u03b8\u2081', pad+8,pad+50);
+    ctx.fillStyle='#8f7fd4'; ctx.fillText('\u25cf current',                       pad+8,pad+66);
+    root.querySelector('#gb-lbl').textContent='Step: '+Math.floor(upTo/2)+' / '+N;
+    annotate(upTo,rho,sig2);
+  }
+
+  function rebuild(){
+    clearInterval(timer); playing=false;
+    root.querySelector('#gb-play').textContent='\u25b6 Play';
+    var p=getParams();
+    chain=buildChain(p.rho,p.sig2);
+    cur=0; draw(0,p.rho,p.sig2);
+  }
+
+  function redraw(){ var p=getParams(); draw(cur,p.rho,p.sig2); }
+
+  rebuild();
+
+  root.querySelector('#gb-step').addEventListener('click',function(){
+    if(cur<chain.length-1){cur++;redraw();}
+  });
+
+  root.querySelector('#gb-reset').addEventListener('click',rebuild);
+
+  root.querySelector('#gb-play').addEventListener('click',function(){
+    var btn=this;
+    if(playing){
+      clearInterval(timer);playing=false;btn.textContent='\u25b6 Play';
+    } else {
+      playing=true; btn.textContent='\u23f8 Pause';
+      var spd=parseInt(root.querySelector('#gb-spd').value);
+      timer=setInterval(function(){
+        if(cur<chain.length-1){cur++;redraw();}
+        else{clearInterval(timer);playing=false;btn.textContent='\u25b6 Play';}
+      },spd);
+    }
+  });
+
+  root.querySelector('#gb-spd').addEventListener('input',function(){
+    root.querySelector('#gb-spdv').textContent=this.value+'ms';
+    if(playing){
+      clearInterval(timer);
+      var spd=parseInt(this.value),btn=root.querySelector('#gb-play');
+      timer=setInterval(function(){
+        if(cur<chain.length-1){cur++;redraw();}
+        else{clearInterval(timer);playing=false;btn.textContent='\u25b6 Play';}
+      },spd);
+    }
+  });
+
+  root.querySelector('#gb-rho').addEventListener('input',function(){
+    root.querySelector('#gb-rhov').textContent=parseFloat(this.value).toFixed(2);
+    rebuild();
+  });
+
+  root.querySelector('#gb-var').addEventListener('input',function(){
+    root.querySelector('#gb-varv').textContent=parseFloat(this.value).toFixed(1);
+    rebuild();
+  });
+
+},300);
+</script>
+```
+
+:::
+
+## [MCMC - Gibbs sampler: HW5 Problem 3]{.r-fit-text}
 
 ::: {style="font-size: 57%;"}
 
@@ -75,8 +452,15 @@ where $\mu\perp\lambda$ a priori.
 
 :::
 
+. . .
 
-## [MCMC - Gibbs sampler, cont'd]{.r-fit-text}
+
+[Let's derive the full conditionals.]{style="color: red; font-size: 2em; display: block; text-align: center; margin-top: 1rem;"}
+
+
+
+
+## [MCMC - Gibbs sampler: HW5 Problem 3, cont'd]{.r-fit-text}
 
 ::: {style="font-size: 60%;"}
 
@@ -85,6 +469,7 @@ The full conditional distributions are:
 - $$\mu\mid\lambda,\mathbf{x} \sim N(m_n,v_n), \quad \text{where } m_n=\frac{n\lambda\bar{x}+m_0/v_0}{n\lambda+1/v_0}, \quad v_n=\left(n\lambda+\frac{1}{v_0}\right)^{-1}$$
 
 - $$\lambda\mid\mu,\mathbf{x} \sim \operatorname{Gamma}\left(a_0+\frac{n}{2},\; b_0+\frac{1}{2}\sum_{i=1}^n(x_i-\mu)^2\right)$$
+
 
 Let's set up our parameters first:
 $m_0=5, v_0=0.5, a_0=1, b_0=4$
@@ -107,7 +492,7 @@ xbar <- mean(x)
 :::
 
 
-## [MCMC - Gibbs sampler, cont'd]{.r-fit-text}
+## [MCMC - Gibbs sampler: HW5 Problem 3, cont'd]{.r-fit-text}
 
 ::: {style="font-size: 65%;"}
 
@@ -178,294 +563,37 @@ lambda_mcmc <- mcmc(lambda_samp)
 :::
 
 
-## [Gibbs Sampler — Interactive Animation]{.r-fit-text}
+## [MCMC - Diagnostics: did the chain converge?]{.r-fit-text}
 
-::: {style="font-size: 60%;"}
+::: {style="font-size: 68%;"}
 
-```{=html}
-<div id="gibbs-root">
-<div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:6px;font-size:12px;">
-  <button id="gb-step">Step</button>
-  <button id="gb-play">▶ Play</button>
-  <button id="gb-reset">Reset</button>
-  <label>Speed
-    <input type="range" id="gb-spd" min="100" max="2000" value="800" step="100">
-    <span id="gb-spdv">800ms</span>
-  </label>
-  <label>ρ
-    <input type="range" id="gb-rho" min="-0.95" max="0.95" value="0.95" step="0.05">
-    <span id="gb-rhov">0.95</span>
-  </label>
-  <label>σ²
-    <input type="range" id="gb-var" min="0.2" max="3" value="1" step="0.1">
-    <span id="gb-varv">1.0</span>
-  </label>
-  <span id="gb-lbl" style="opacity:0.6;">Step: 0 / 100</span>
-</div>
+After running Gibbs, we need to check the chain actually worked. Three key tools:
 
-<!-- annotation bar -->
-<div id="gb-ann" style="min-height:28px;font-size:12px;padding:4px 8px;margin-bottom:4px;
-  border-left:3px solid #2a72c8;background:rgba(42,114,200,0.07);border-radius:3px;
-  color:#1a1a1a;line-height:1.4;"></div>
+. . .
 
-<canvas id="gb-cv" width="900" height="420"
-  style="width:100%;border:1px solid #ccc;border-radius:6px;"></canvas>
-</div>
+**Trace plot** — plot $\mu^{(t)}$ and $\lambda^{(t)}$ over iterations. 
+A good chain looks like a "hairy caterpillar" — mixing freely, not drifting or getting stuck.
 
-<script>
-setTimeout(function(){
-  var root = document.getElementById('gibbs-root');
-  if(!root) return;
-  var cv   = root.querySelector('#gb-cv');
-  var ctx  = cv.getContext('2d');
-  var ann  = root.querySelector('#gb-ann');
-  var W=900,H=420,pad=55,plotW=W-pad*2,plotH=H-pad*2;
-  var xl=[-6,6],yl=[-6,6];
-  var N=100;
-  var chain=[],cur=0,playing=false,timer=null;
+. . .
 
-  function getParams(){
-    return {
-      rho:  parseFloat(root.querySelector('#gb-rho').value),
-      sig2: parseFloat(root.querySelector('#gb-var').value)
-    };
-  }
+**ACF (Autocorrelation Function)** — measures how correlated consecutive draws are.
+Good mixing = ACF drops to zero quickly after lag 0.
 
-  function randn(){
-    var u,v;
-    do{u=Math.random();}while(!u);
-    do{v=Math.random();}while(!v);
-    return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
-  }
+. . .
 
-  function buildChain(rho,sig2){
-    var sig=Math.sqrt(sig2);
-    /* start well outside: corner of the plot */
-    var c=[[4.5*sig, -4.5*sig]];
-    for(var i=1;i<=N;i++){
-      var p=c[c.length-1];
-      var z1=rho/1*p[1]+Math.sqrt(sig2*(1-rho*rho))*randn();
-      c.push([z1,p[1]]);               /* horizontal half-step */
-      var z2=rho/1*z1+Math.sqrt(sig2*(1-rho*rho))*randn();
-      c.push([z1,z2]);                 /* vertical half-step   */
-    }
-    return c;
-  }
+**Effective Sample Size (ESS)** — because MCMC draws are *dependent*, 8000 draws $\neq$ 8000 independent samples. ESS tells you the equivalent number of independent draws.
 
-  function px(x,y){
-    return [
-      pad+(x-xl[0])/(xl[1]-xl[0])*plotW,
-      pad+(1-(y-yl[0])/(yl[1]-yl[0]))*plotH
-    ];
-  }
+$$\text{ESS} = \frac{M}{1 + 2\sum_{k=1}^\infty \text{ACF}(k)}$$
 
-  function bgauss(x,y,rho,sig2){
-    var z=(x*x-2*rho*x*y+y*y)/(sig2*(1-rho*rho));
-    return Math.exp(-z/2);
-  }
+. . .
 
-  function drawContours(rho,sig2){
-    var levels=[0.05,0.15,0.35,0.55,0.75,0.90];
-    var cols=['#e8e6fb','#ccc9f5','#b3afee','#9a95e7','#837de2','#6a63db'];
-    var gN=80;
-    var xs=Array.from({length:gN},function(_,i){return xl[0]+(xl[1]-xl[0])*i/(gN-1);});
-    var ys=Array.from({length:gN},function(_,j){return yl[0]+(yl[1]-yl[0])*j/(gN-1);});
-    var vals=xs.map(function(x){return ys.map(function(y){return bgauss(x,y,rho,sig2);});});
-    var dx=plotW/(gN-1),dy=plotH/(gN-1);
-    for(var li=levels.length-1;li>=0;li--){
-      var lv=levels[li];
-      ctx.beginPath();
-      for(var i=0;i<gN-1;i++){
-        for(var j=0;j<gN-1;j++){
-          var v=[vals[i][j],vals[i+1][j],vals[i+1][j+1],vals[i][j+1]];
-          var cnt=v.filter(function(vv){return vv>=lv;}).length;
-          if(cnt>0&&cnt<4){
-            var pt=px(xs[i]+(xs[1]-xs[0])/2, ys[j]+(ys[1]-ys[0])/2);
-            ctx.rect(pt[0]-dx/2,pt[1]-dy/2,dx,dy);
-          }
-        }
-      }
-      ctx.fillStyle=cols[li]; ctx.fill();
-    }
-  }
-
-  function drawAxes(){
-    ctx.strokeStyle='rgba(0,0,0,0.1)'; ctx.lineWidth=0.5;
-    ctx.fillStyle='rgba(0,0,0,0.4)';   ctx.font='11px sans-serif';
-    for(var v=-4;v<=4;v+=2){
-      var pt1=px(v,0),pt2=px(0,v);
-      ctx.beginPath();ctx.moveTo(pt1[0],pad);ctx.lineTo(pt1[0],H-pad);ctx.stroke();
-      ctx.beginPath();ctx.moveTo(pad,pt2[1]);ctx.lineTo(W-pad,pt2[1]);ctx.stroke();
-      ctx.textAlign='center'; ctx.fillText(v,pt1[0],H-pad+14);
-      ctx.textAlign='right';  ctx.fillText(v,pad-6,pt2[1]+4);
-    }
-    ctx.fillStyle='rgba(0,0,0,0.65)'; ctx.font='13px sans-serif';
-    ctx.textAlign='center'; ctx.fillText('z\u2081',W/2,H-8);
-    ctx.save();ctx.translate(14,H/2);ctx.rotate(-Math.PI/2);
-    ctx.fillText('z\u2082',0,0);ctx.restore();
-  }
-
-  /* dashed guide line showing the conditional slice */
-  function drawGuide(upTo){
-    if(upTo<=0||upTo>=chain.length) return;
-    var isHoriz=(upTo%2===1); /* odd = just sampled z1, guide is horizontal */
-    var pt=px(chain[upTo][0],chain[upTo][1]);
-    ctx.save();
-    ctx.setLineDash([5,4]);
-    ctx.lineWidth=0.8;
-    ctx.strokeStyle='rgba(80,80,80,0.35)';
-    ctx.beginPath();
-    if(isHoriz){
-      /* z2 is fixed — draw horizontal line across */
-      var ptL=px(xl[0],chain[upTo][1]);
-      var ptR=px(xl[1],chain[upTo][1]);
-      ctx.moveTo(ptL[0],ptL[1]); ctx.lineTo(ptR[0],ptR[1]);
-    } else {
-      /* z1 is fixed — draw vertical line */
-      var ptT=px(chain[upTo][0],yl[1]);
-      var ptB=px(chain[upTo][0],yl[0]);
-      ctx.moveTo(ptT[0],ptT[1]); ctx.lineTo(ptB[0],ptB[1]);
-    }
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  function annotate(upTo, rho, sig2){
-    if(upTo===0){
-      ann.style.borderColor='#1aab6d';
-      ann.style.background='rgba(26,171,109,0.07)';
-      ann.innerHTML='<b>Start:</b> chain begins far from the distribution. Watch it walk in.';
-      return;
-    }
-    var isHoriz=(upTo%2===1);
-    var step=Math.floor(upTo/2)+1;
-    var prev=chain[upTo-1], curr=chain[upTo];
-    var p=getParams();
-    if(isHoriz){
-      ann.style.borderColor='#2a72c8';
-      ann.style.background='rgba(42,114,200,0.07)';
-      ann.innerHTML='<b>Half-step '+step+'a — sample z\u2081 | z\u2082 = '+curr[1].toFixed(2)+':</b>'
-        +' z\u2082 is <i>fixed</i> (dashed line). Draw z\u2081 from '
-        +'N(\u03c1\u00b7'+curr[1].toFixed(2)+', \u03c3\u00b2(1\u2212\u03c1\u00b2))'
-        +' = N('+( p.rho*curr[1]).toFixed(2)+', '+(p.sig2*(1-p.rho*p.rho)).toFixed(2)+')'
-        +' \u2192 z\u2081 = '+curr[0].toFixed(2)+'. Move <b>horizontally</b>.';
-    } else {
-      ann.style.borderColor='#e8793a';
-      ann.style.background='rgba(232,121,58,0.07)';
-      ann.innerHTML='<b>Half-step '+step+'b — sample z\u2082 | z\u2081 = '+curr[0].toFixed(2)+':</b>'
-        +' z\u2081 is <i>fixed</i> (dashed line). Draw z\u2082 from '
-        +'N(\u03c1\u00b7'+curr[0].toFixed(2)+', \u03c3\u00b2(1\u2212\u03c1\u00b2))'
-        +' = N('+(p.rho*curr[0]).toFixed(2)+', '+(p.sig2*(1-p.rho*p.rho)).toFixed(2)+')'
-        +' \u2192 z\u2082 = '+curr[1].toFixed(2)+'. Move <b>vertically</b>.';
-    }
-  }
-
-  function draw(upTo,rho,sig2){
-    ctx.clearRect(0,0,W,H);
-    drawContours(rho,sig2);
-    drawAxes();
-
-    /* fade older steps */
-    for(var i=1;i<=upTo&&i<chain.length;i++){
-      var age=upTo-i;
-      var alpha=Math.max(0.15, 1-age*0.04);
-      var p1=px(chain[i-1][0],chain[i-1][1]);
-      var p2=px(chain[i][0],chain[i][1]);
-      ctx.beginPath(); ctx.moveTo(p1[0],p1[1]); ctx.lineTo(p2[0],p2[1]);
-      ctx.lineWidth=i===upTo?2.5:1.5;
-      var baseCol=i%2===1?'42,114,200':'232,121,58';
-      ctx.strokeStyle='rgba('+baseCol+','+alpha+')';
-      ctx.stroke();
-    }
-
-    drawGuide(upTo);
-
-    /* start dot */
-    var s=px(chain[0][0],chain[0][1]);
-    ctx.beginPath();ctx.arc(s[0],s[1],7,0,2*Math.PI);
-    ctx.fillStyle='#1aab6d';ctx.fill();
-
-    /* current dot */
-    if(upTo>0&&upTo<chain.length){
-      var cp=px(chain[upTo][0],chain[upTo][1]);
-      ctx.beginPath();ctx.arc(cp[0],cp[1],6,0,2*Math.PI);
-      ctx.fillStyle='#8f7fd4';ctx.fill();
-      ctx.strokeStyle='#333';ctx.lineWidth=1.2;ctx.stroke();
-    }
-
-    /* legend */
-    ctx.font='12px sans-serif'; ctx.textAlign='left';
-    ctx.fillStyle='#1aab6d'; ctx.fillText('\u25cf start',           pad+8,pad+18);
-    ctx.fillStyle='#2a72c8'; ctx.fillText('\u2014 sample z\u2081|z\u2082',pad+8,pad+34);
-    ctx.fillStyle='#e8793a'; ctx.fillText('\u2014 sample z\u2082|z\u2081',pad+8,pad+50);
-    ctx.fillStyle='#8f7fd4'; ctx.fillText('\u25cf current',          pad+8,pad+66);
-
-    root.querySelector('#gb-lbl').textContent='Step: '+Math.floor(upTo/2)+' / '+N;
-    annotate(upTo,rho,sig2);
-  }
-
-  function rebuild(){
-    clearInterval(timer); playing=false;
-    root.querySelector('#gb-play').textContent='\u25b6 Play';
-    var p=getParams();
-    chain=buildChain(p.rho,p.sig2);
-    cur=0; draw(0,p.rho,p.sig2);
-  }
-
-  function redraw(){ var p=getParams(); draw(cur,p.rho,p.sig2); }
-
-  rebuild();
-
-  root.querySelector('#gb-step').addEventListener('click',function(){
-    if(cur<chain.length-1){cur++;redraw();}
-  });
-
-  root.querySelector('#gb-reset').addEventListener('click',rebuild);
-
-  root.querySelector('#gb-play').addEventListener('click',function(){
-    var btn=this;
-    if(playing){
-      clearInterval(timer);playing=false;btn.textContent='\u25b6 Play';
-    } else {
-      playing=true; btn.textContent='\u23f8 Pause';
-      var spd=parseInt(root.querySelector('#gb-spd').value);
-      timer=setInterval(function(){
-        if(cur<chain.length-1){cur++;redraw();}
-        else{clearInterval(timer);playing=false;btn.textContent='\u25b6 Play';}
-      },spd);
-    }
-  });
-
-  root.querySelector('#gb-spd').addEventListener('input',function(){
-    root.querySelector('#gb-spdv').textContent=this.value+'ms';
-    if(playing){
-      clearInterval(timer);
-      var spd=parseInt(this.value),btn=root.querySelector('#gb-play');
-      timer=setInterval(function(){
-        if(cur<chain.length-1){cur++;redraw();}
-        else{clearInterval(timer);playing=false;btn.textContent='\u25b6 Play';}
-      },spd);
-    }
-  });
-
-  root.querySelector('#gb-rho').addEventListener('input',function(){
-    root.querySelector('#gb-rhov').textContent=parseFloat(this.value).toFixed(2);
-    rebuild();
-  });
-
-  root.querySelector('#gb-var').addEventListener('input',function(){
-    root.querySelector('#gb-varv').textContent=parseFloat(this.value).toFixed(1);
-    rebuild();
-  });
-
-},300);
-</script>
-```
+> For $\mu$: ESS ≈ 4885. For $\lambda$: ESS ≈ 4811. Both are high — the chain mixed well.
 
 :::
 
 
-## [MCMC - Gibbs sampler, cont'd]{.r-fit-text}
+
+## [MCMC - Gibbs sampler: HW5 Problem 3, cont'd]{.r-fit-text}
 
 ::: {style="font-size: 50%;"}
 
@@ -481,7 +609,7 @@ par(mfrow = c(1, 1))
 :::
 
 
-## [MCMC - Gibbs sampler, cont'd]{.r-fit-text}
+## [MCMC - Gibbs sampler: HW5 Problem 3, cont'd]{.r-fit-text}
 
 ::: {style="font-size: 60%;"}
 
@@ -492,7 +620,7 @@ plot(mu_mcmc, main = "Trace & Density of mu")
 :::
 
 
-## [MCMC - Gibbs sampler, cont'd]{.r-fit-text}
+## [MCMC - Gibbs sampler: HW5 Problem 3, cont'd]{.r-fit-text}
 
 ::: {style="font-size: 60%;"}
 
@@ -503,14 +631,13 @@ plot(lambda_mcmc, main = "Trace & Density of lambda")
 :::
 
 
-## [MCMC - Gibbs sampler, cont'd]{.r-fit-text}
+## [MCMC - Gibbs sampler: HW5 Problem 3, cont'd]{.r-fit-text}
 
 ::: {style="font-size: 60%;"}
 
 Evaluate the marginal posterior density $p(\lambda \mid \mathbf{x})$ analytically up to a normalizing constant and overlay this density on your plot.
 
-```{r}
-# Define the unnormalized analytical posterior of lambda
+```{r, fig.height=5}
 S <- sum((x - xbar)^2)
 post_lambda <- function(lam) {
   lam <- ifelse(lam <= 0, NA, lam)
@@ -519,18 +646,15 @@ post_lambda <- function(lam) {
   part1 * part2
 }
 
-# Normalize using integrate()
 norm_const <- integrate(post_lambda, lower = 0.001, upper = Inf)$value
-
-# Evaluate normalized posterior on a grid
 grid <- seq(0.001, 0.15, length = 500)
 dens <- sapply(grid, post_lambda) / norm_const
 
-# Plot MCMC vs analytical posterior
 plot(density(lambda_samp),
      main = "Posterior of lambda | x",
      xlab = "lambda",
      xlim = c(0, 0.15),
+     ylim = c(0, max(dens) * 1.1),
      lwd = 2, col = "black")
 
 lines(grid, dens, col = "red", lwd = 2)
@@ -541,9 +665,6 @@ legend("topright",
 ```
 
 :::
-
-## [Monte Carlo Markov Chain Diagnostics]{.r-fit-text}
-
 
 
 ## [MCMC - Gibbs sampler & MH(package(coda))]{.r-fit-text}
@@ -660,10 +781,10 @@ $A(a \rightarrow b)=\operatorname{min}\left(1, \frac{f(b)}{f(a)}\right) =\operat
         $\theta^{(t-1)}$, with probability $r$ and $1-r$ respectively.
 :::
 
-## [MCMC - Metropolis-Hastings Algorithm(HW problem 1)]{.r-fit-text}
+## [MCMC - Metropolis-Hastings Algorithm]{.r-fit-text}
 
 ::: {style="font-size: 57%;"}
-Consider the file `school1.` dat (from the Book website) which contains data on the amount of times students at a high school spent on studying or homework during an exam period. Suppose we fit the following model:
+Consider the file `school1.` dat which contains data on the amount of times students at a high school spent on studying or homework during an exam period. Suppose we fit the following model:
 
 $$
 \begin{aligned}
@@ -678,7 +799,7 @@ with $\mu_0=5, \tau_0^2=0.5$. Let us fix $\sigma^2=1$. Implement a Metropolis-Ha
 library(coda)
 
 # Read data
-y <- scan(url("https://www2.stat.duke.edu/~pdh10/FCBS/Exercises/school1.dat"))
+y <- scan(url("https://raw.githubusercontent.com/jkstatai/Rice_Fa26_STAT_425/main/docs/Data/school1.dat"))
 n <- length(y)
 
 # Known hyperparameters
@@ -695,7 +816,7 @@ log_post <- function(mu, y, mu0, tau0_sq, sigma_sq) {
 ```
 :::
 
-## [MCMC - Metropolis-Hastings Algorithm(HW problem 1, cont'd)]{.r-fit-text}
+## [MCMC - Metropolis-Hastings Algorithm, cont'd]{.r-fit-text}
 
 ::: {style="font-size: 60%;"}
 
@@ -734,7 +855,7 @@ mh_sampler <- function(sigma_p, n_iter = 5000, burn_in = 1000) {
 ```
 :::
 
-## [MCMC - Metropolis-Hastings Algorithm(HW problem 1, contd)]{.r-fit-text}
+## [MCMC - Metropolis-Hastings Algorithm, cont'd]{.r-fit-text}
 
 ::: {style="font-size: 70%;"}
 
@@ -765,7 +886,7 @@ densplot(chain_small, main = "Posterior Density (sigma_p = 0.5)")
 ```
 :::
 
-## [MCMC - Metropolis-Hastings Algorithm(HW problem 1, contd)]{.r-fit-text}
+## [MCMC - Metropolis-Hastings Algorithm, cont'd]{.r-fit-text}
 
 ::: {style="font-size: 60%;"}
 ```{r, echo=TRUE}
@@ -773,7 +894,7 @@ autocorr.plot(chain_small, main = "Autocorrelation (sigma_p = 0.5)")
 ```
 :::
 
-## [MCMC - Metropolis-Hastings Algorithm(HW problem 1, contd)]{.r-fit-text}
+## [MCMC - Metropolis-Hastings Algorithm, cont'd]{.r-fit-text}
 
 ::: {style="font-size: 70%;"}
 
@@ -800,7 +921,7 @@ chain3 <- mh_sampler(sigma_p = 0.5)
 
 
 
-## [MCMC - Metropolis-Hastings Algorithm(HW problem 1, cont'd)]{.r-fit-text}
+## [MCMC - Metropolis-Hastings Algorithm, cont'd]{.r-fit-text}
 
 ::: {style="font-size: 70%;"}
 
@@ -1541,6 +1662,20 @@ answer or go over the solution together.
 ::::
 
 -->
+
+## Finally
+
+![](600px-BayesEvol-1.jpg){width="800" height="600"}
+
+## Resources {.smaller}
+
+
+-   [*An Introduction to Bayesian Reasoning and Methods* by Kevin
+    Davis](https://peterhoff.io/book/)\
+-   [*A First Course in Bayesian Statistical Methods (school1.dat is from here)* by Dr. Peter
+    Hoff](https://peterhoff.io/book/)\
+-   [Ritvik Kharkar](https://www.linkedin.com/in/ritvik-kharkar/) 
+
 
 # Thank you! {.smaller}
 
