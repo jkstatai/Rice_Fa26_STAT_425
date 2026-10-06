@@ -1,5 +1,5 @@
 ---
-title: "MCMC (Gibbs & Metropolis-Hastings)"
+title: "Guest Lecture: MCMC — Gibbs Sampling & Metropolis–Hastings"
 subtitle: "Code, Packages & Diagnostics"
 author: "Justin Kao"
 footer: "STAT 425 - Fall 2026"
