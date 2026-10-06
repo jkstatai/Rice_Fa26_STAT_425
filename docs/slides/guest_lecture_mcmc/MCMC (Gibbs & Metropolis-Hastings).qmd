@@ -869,7 +869,7 @@ summary(chain_small)
 ```
 :::
 
-## [MCMC - Metropolis-Hastings Algorithm(HW problem 1, contd)]{.r-fit-text}
+## [MCMC - Metropolis-Hastings Algorithm, contd)]{.r-fit-text}
 
 ::: {style="font-size: 60%;"}
 
@@ -878,7 +878,7 @@ traceplot(chain_small, main = "Trace Plot (sigma_p = 0.5)")
 ```
 :::
 
-## [MCMC - Metropolis-Hastings Algorithm(HW problem 1, contd)]{.r-fit-text}
+## [MCMC - Metropolis-Hastings Algorithm, contd)]{.r-fit-text}
 
 ::: {style="font-size: 60%;"}
 ```{r, echo=TRUE}
