@@ -733,7 +733,6 @@ $$\frac{A(a \rightarrow b)}{A(b \rightarrow a)}=\underbrace{\frac{f(b)}{f(a)}}_{
 So $A(a \rightarrow b)=\operatorname{min}\left(r_f r_g, 1\right)$
 :::
 
-This matches the expression shown in Dr. Marina Vannucci’s slides:
 
 ::: {.fragment .highlight-red}
 $$
