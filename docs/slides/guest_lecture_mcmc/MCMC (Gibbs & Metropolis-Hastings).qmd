@@ -470,7 +470,8 @@ The full conditional distributions are:
 
 - $$\lambda\mid\mu,\mathbf{x} \sim \operatorname{Gamma}\left(a_0+\frac{n}{2},\; b_0+\frac{1}{2}\sum_{i=1}^n(x_i-\mu)^2\right)$$
 
-
+The files `school1.dat` through `school8.dat` give weekly hours spent on homework for students sampled from eight different schools.
+ 
 Let's set up our parameters first:
 $m_0=5, v_0=0.5, a_0=1, b_0=4$
 
@@ -714,7 +715,7 @@ $$
 
 ## MCMC - Metropolis-Hastings Algorithm
 
-::::: {style="font-size: 50%;"}
+::::: {style="font-size: 70%;"}
 $$
 \begin{aligned}
 \frac{f(a)}{NC} g(b \mid a) A(a \rightarrow b)=\frac{f(b)}{NC } g(a \mid b) A(b \rightarrow a)
@@ -734,11 +735,13 @@ So $A(a \rightarrow b)=\operatorname{min}\left(r_f r_g, 1\right)$
 :::
 
 
+<!--
 ::: {.fragment .highlight-red}
 $$
 A(\theta_{t-1} \rightarrow \theta^* = \theta_t) = \rho\left(\theta^{(t-1)}, \theta^*\right)=\min \left\{\frac{p\left(\theta^* \mid x\right)}{p\left(\theta^{(t-1)} \mid x\right)} \frac{q\left(\theta^{(t-1)} \mid \theta^*\right)}{q\left(\theta^* \mid \theta^{(t-1)}\right)}, 1\right\}
 $$
 :::
+
 
 $$
 \theta^{(t)}=\left\{\begin{array}{l}
@@ -746,6 +749,8 @@ $$
 \theta^{(t-1)} \quad \text { with probability } \quad 1-\rho\left(\theta^{(t-1)}, \theta^*\right)
 \end{array}\right.
 $$
+-->
+
 :::::
 
 ## [MCMC - Metropolis-Hastings Algorithm - Intuition]{.r-fit-text}
